@@ -12,5 +12,5 @@ That creates:
 | `models/palm.onnx` | Finds a palm anywhere in the camera picture | [opencv/palm_detection_mediapipe](https://huggingface.co/opencv/palm_detection_mediapipe) (`palm_detection_mediapipe_2023feb.onnx`) |
 | `models/hand.onnx` | Gives 21 hand points for one hand | [opencv/handpose_estimation_mediapipe](https://huggingface.co/opencv/handpose_estimation_mediapipe) (`handpose_estimation_mediapipe_2023feb.onnx`) |
 
-Both are OpenCV's ONNX conversions of Google MediaPipe's hand models. Licence: to be confirmed (being verified separately).
+Both are OpenCV's ONNX conversions of Google MediaPipe's hand models. Licence: Apache License 2.0, per both Hugging Face model cards.
 The script checks each download against a SHA-256 fingerprint, so a changed or damaged file is rejected.

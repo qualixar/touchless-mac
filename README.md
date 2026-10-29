@@ -102,8 +102,8 @@ The hand tracking uses Google's MediaPipe hand models (palm detection and 21-poi
 converted to ONNX by OpenCV and run with ONNX Runtime through the `ort` crate. The pipeline follows MediaPipe's:
 a rotated crop, then tracking from the palm joints. The pinch and smoothing numbers come from measuring this app against it.
 
-- Google MediaPipe hand models: Apache License 2.0 (to be confirmed).
-- OpenCV ONNX conversions of those models (`opencv/palm_detection_mediapipe`, `opencv/handpose_estimation_mediapipe` on Hugging Face): licence to be confirmed.
+- Google MediaPipe hand models: the palm detector and the 21-point hand landmark model (https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
+- OpenCV ONNX conversions of those models (`opencv/palm_detection_mediapipe`, `opencv/handpose_estimation_mediapipe` on Hugging Face), which `scripts/get-models.sh` downloads: Apache License 2.0, per both model cards ("All files in this directory are licensed under Apache 2.0 License").
 - The One Euro filter is from Casiez, Roussel and Vogel, CHI 2012.
 
 The models are not stored in this repository; `scripts/get-models.sh` downloads them from Hugging Face and checks their SHA-256 fingerprints.
