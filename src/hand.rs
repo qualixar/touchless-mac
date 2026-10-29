@@ -11,7 +11,10 @@ use ort::{session::Session, value::Tensor};
 
 // Names for the hand points we use (the model numbers them 0 to 20).
 pub const WRIST: usize = 0;
+pub const THUMB_TIP: usize = 4;
 pub const INDEX_KNUCKLE: usize = 5;
+pub const INDEX_TIP: usize = 8;
+pub const MIDDLE_TIP: usize = 12;
 
 /// The 12 points of the palm itself. We leave out the fingertips on purpose: fingertips
 /// move a lot, and a box drawn around them would swing about and make the cursor shake.
@@ -33,6 +36,9 @@ pub struct Point {
 #[derive(Clone, Debug)]
 pub struct Hand {
     pub points: [Point; 21],
+    /// The same 21 points in metres (3D, origin near the hand centre). Distances measured here
+    /// don't change when the hand tilts towards the camera, unlike distances in pixels.
+    pub world: [[f32; 3]; 21],
     pub confidence: f32,
 }
 
@@ -163,6 +169,7 @@ impl Detector {
         let outputs = self.hand_model.run(ort::inputs![input])?;
         let (_, landmarks) = outputs[0].try_extract_tensor::<f32>()?;
         let (_, confidence) = outputs[1].try_extract_tensor::<f32>()?;
+        let (_, world_points) = outputs[3].try_extract_tensor::<f32>()?;
         if confidence[0] < MIN_CONFIDENCE {
             return Ok(None);
         }
@@ -170,7 +177,10 @@ impl Detector {
             let (x, y) = to_picture(landmarks[i * 3], landmarks[i * 3 + 1]);
             Point { x, y }
         });
-        Ok(Some(Hand { points, confidence: confidence[0] }))
+        let world = std::array::from_fn(|i| {
+            [world_points[i * 3], world_points[i * 3 + 1], world_points[i * 3 + 2]]
+        });
+        Ok(Some(Hand { points, world, confidence: confidence[0] }))
     }
 }
 
@@ -233,6 +243,33 @@ impl Hand {
         let cx = centre_a * right.0 + (centre_b + shift) * up.0;
         let cy = centre_a * right.1 + (centre_b + shift) * up.1;
         Crop { cx, cy, side: size * 2.0, up }
+    }
+}
+
+impl Hand {
+    /// Distance in metres between two hand points (3D, so it ignores tilt).
+    pub fn distance_m(&self, a: usize, b: usize) -> f32 {
+        let (p, q) = (self.world[a], self.world[b]);
+        ((p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2)).sqrt()
+    }
+
+    /// An open hand: every finger is stretched, meaning its tip is further from the wrist
+    /// than its middle joint.
+    pub fn is_open_palm(&self) -> bool {
+        let from_wrist = |i: usize| {
+            let (wrist, p) = (self.points[WRIST], self.points[i]);
+            (p.x - wrist.x).hypot(p.y - wrist.y)
+        };
+        let stretched = |tip: usize, middle_joint: usize| from_wrist(tip) > from_wrist(middle_joint) * 1.1;
+        stretched(8, 6) && stretched(12, 10) && stretched(16, 14) && stretched(20, 18)
+    }
+
+    /// The middle of the palm (wrist plus the four knuckles), in picture pixels.
+    pub fn palm_centre(&self) -> Point {
+        const PALM_CENTRE_POINTS: [usize; 5] = [0, 5, 9, 13, 17];
+        let sum_x: f32 = PALM_CENTRE_POINTS.iter().map(|&i| self.points[i].x).sum();
+        let sum_y: f32 = PALM_CENTRE_POINTS.iter().map(|&i| self.points[i].y).sum();
+        Point { x: sum_x / 5.0, y: sum_y / 5.0 }
     }
 }
 

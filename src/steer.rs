@@ -105,3 +105,81 @@ impl Steering {
         self.filter_y.reset();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DT: f32 = 1.0 / 30.0;
+
+    #[test]
+    fn first_value_passes_straight_through() {
+        let mut filter = OneEuro::new(0.6, 10.0);
+        assert_eq!(filter.filter(0.42, DT), 0.42);
+    }
+
+    #[test]
+    fn a_still_hand_stays_put() {
+        let mut filter = OneEuro::new(0.6, 10.0);
+        let last = (0..60).map(|_| filter.filter(0.5, DT)).last().unwrap();
+        assert!((last - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn small_shaking_is_calmed_down() {
+        let mut filter = OneEuro::new(0.6, 10.0);
+        filter.filter(0.5, DT);
+        let mut worst: f32 = 0.0;
+        for i in 0..90 {
+            let shaky = 0.5 + if i % 2 == 0 { 0.002 } else { -0.002 };
+            let calm = filter.filter(shaky, DT);
+            worst = worst.max((calm - 0.5).abs());
+        }
+        assert!(worst < 0.001, "the output should shake less than half as much, got {worst}");
+    }
+
+    #[test]
+    fn fast_moves_catch_up_quicker_with_beta() {
+        // The hand sweeps from 0.2 to 0.8 in half a second.
+        let sweep = |beta: f32| {
+            let mut filter = OneEuro::new(0.6, beta);
+            let mut out = 0.2;
+            for i in 0..=15 {
+                out = filter.filter(0.2 + 0.6 * i as f32 / 15.0, DT);
+            }
+            out
+        };
+        assert!(sweep(10.0) > sweep(0.0) + 0.05, "beta lets fast moves through with less lag");
+    }
+
+    #[test]
+    fn reset_forgets_the_past() {
+        let mut filter = OneEuro::new(0.6, 10.0);
+        filter.filter(0.1, DT);
+        filter.filter(0.2, DT);
+        filter.reset();
+        assert_eq!(filter.filter(0.9, DT), 0.9);
+    }
+
+    #[test]
+    fn reach_box_maps_corners_and_clamps_outside() {
+        let b = ReachBox { x0: 0.4, x1: 0.6, y0: 0.2, y1: 0.4 };
+        assert_eq!(b.map(0.4, 0.2), (0.0, 0.0));
+        assert_eq!(b.map(0.6, 0.4), (1.0, 1.0));
+        let (cx, cy) = b.map(0.5, 0.3);
+        assert!((cx - 0.5).abs() < 1e-6 && (cy - 0.5).abs() < 1e-6);
+        assert_eq!(b.map(-3.0, 9.0), (0.0, 1.0), "outside the box is held at the edge");
+    }
+
+    #[test]
+    fn steering_mirrors_x_and_reaches_every_screen_corner() {
+        let mut steering = Steering::new(ReachBox::DEFAULT, 1512, 982);
+        // Frame is 1000 pixels wide. A knuckle at x=620 is mirrored to 0.38 (the box's left edge).
+        let top_left = steering.aim(Point { x: 620.0, y: 200.0 }, 1000.0, DT);
+        assert!(top_left.0.abs() < 1e-3 && top_left.1.abs() < 1e-3, "{top_left:?}");
+
+        steering.lost();
+        let bottom_right = steering.aim(Point { x: 360.0, y: 400.0 }, 1000.0, DT);
+        assert!((bottom_right.0 - 1511.0).abs() < 1e-2 && (bottom_right.1 - 981.0).abs() < 1e-2, "{bottom_right:?}");
+    }
+}
