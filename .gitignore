@@ -1,0 +1,3 @@
+/target
+# The hand models are big. scripts/get-models.sh downloads them.
+models/*.onnx

@@ -1,0 +1,14 @@
+[package]
+name = "touchless-mac"
+version = "0.1.0"
+edition = "2024"
+description = "Control your Mac with your hand, built step by step to learn Rust"
+license = "MIT"
+authors = ["Varun Pratap Bhardwaj"]
+
+# Cargo reads this list and fetches every crate (Rust package) the program uses.
+[dependencies]
+# nokhwa talks to the Mac camera.
+nokhwa = { version = "0.10", features = ["input-native", "output-threaded"] }
+# image gives us a picture type to hold one camera frame.
+image = "0.25"
