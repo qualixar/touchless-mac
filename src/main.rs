@@ -1,33 +1,44 @@
-// Chapter 4: enum and match. Pinch clicks, double pinch double-clicks, waves switch apps.
+// Chapter 5: Result and `?`. Clear messages instead of crashes.
 mod camera;
+mod error;
 mod gesture;
 mod hand;
 mod mouse;
 mod steer;
 
-use anyhow::Result;
 use camera::Webcam;
+use error::Result;
 use gesture::{GestureDetector, Reading};
 use hand::{Detector, INDEX_KNUCKLE, Tracker};
 use mouse::Mouse;
 use std::time::Instant;
 use steer::{ReachBox, Steering};
 
-fn main() -> Result<()> {
-    let mut webcam = Webcam::open();
+fn main() {
+    // `run` returns a Result. If it is an Err, we print its message and stop calmly:
+    // no panic, no stack trace, just what went wrong and what to do about it.
+    if let Err(error) = run() {
+        eprintln!("\n{error}\n");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
+    // Cheap checks first: if the models are missing, say so before asking for any permission.
     let detector = Detector::new("models/palm.onnx", "models/hand.onnx")?;
+    let mut webcam = Webcam::open()?;
     let mut tracker = Tracker::new(detector);
     let mut gestures = GestureDetector::new();
-    let mut mouse = Mouse::new();
+    let mut mouse = Mouse::new()?;
 
-    let (screen_width, screen_height) = mouse.screen_size();
+    let (screen_width, screen_height) = mouse.screen_size()?;
     let mut steering = Steering::new(ReachBox::DEFAULT, screen_width, screen_height);
     println!("Screen {screen_width} x {screen_height}. Point to move, pinch to click. Ctrl-C stops.");
 
     let mut previous_frame_at = Instant::now();
     let mut hand_was_visible = false;
     loop {
-        let frame = webcam.grab();
+        let frame = webcam.grab()?;
         let now = Instant::now();
         let dt = now.duration_since(previous_frame_at).as_secs_f32().max(1e-3);
         previous_frame_at = now;
@@ -47,7 +58,7 @@ fn main() -> Result<()> {
                 // The detector turns the hand into a Gesture; the mouse does what it means.
                 let reading = Reading::new(now, cursor, &hand, frame.width() as f32);
                 if let Some(event) = gestures.update(&reading) {
-                    mouse.perform(event);
+                    mouse.perform(event)?;
                 }
             }
             None => {

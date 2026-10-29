@@ -2002,7 +2002,6 @@ dependencies = [
 name = "touchless-mac"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "enigo",
  "image",
  "nokhwa",

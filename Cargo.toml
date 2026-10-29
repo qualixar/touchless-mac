@@ -17,5 +17,3 @@ image = "0.25"
 ort = "=2.0.0-rc.15"
 # enigo moves the mouse and presses keys.
 enigo = "0.6"
-# anyhow gives one easy error type for the model plumbing. Chapter 5 replaces it with our own.
-anyhow = "1"

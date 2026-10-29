@@ -1,13 +1,14 @@
-// Chapter 2: finding the hand.
+// Chapters 2 and 4: finding the hand.
 //
 // Two small neural networks from Google MediaPipe do the hard part:
 //   1. the palm model looks at the whole picture and says "a palm is here",
 //   2. the hand model looks at a crop around that palm and returns 21 hand points.
 // We run them with ONNX Runtime (the `ort` crate). This file is the plumbing around them.
 // You don't need to read every line: the ideas for this chapter are `struct` and `let mut`.
-use anyhow::Result;
+use crate::error::{AppError, Result};
 use image::{RgbImage, imageops, imageops::FilterType};
 use ort::{session::Session, value::Tensor};
+use std::path::Path;
 
 // Names for the hand points we use (the model numbers them 0 to 20).
 pub const WRIST: usize = 0;
@@ -128,6 +129,11 @@ pub struct Detector {
 impl Detector {
     /// Load both models from disk (see models/README.md for how to download them).
     pub fn new(palm_path: &str, hand_path: &str) -> Result<Detector> {
+        for path in [palm_path, hand_path] {
+            if !Path::new(path).exists() {
+                return Err(AppError::ModelMissing(path.to_string()));
+            }
+        }
         let environment = ort::init().with_name("touchless-mac").build()?;
         let palm_model = Session::builder(&environment)?.commit_from_file(palm_path)?;
         let hand_model = Session::builder(&environment)?.commit_from_file(hand_path)?;
