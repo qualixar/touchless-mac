@@ -61,6 +61,13 @@ impl OneEuro {
         self.smoothed = Some(smoothed);
         smoothed
     }
+
+    /// Forget the past. Used when the hand disappears, so the cursor doesn't glide
+    /// from the old spot when the hand comes back.
+    pub fn reset(&mut self) {
+        self.smoothed = None;
+        self.speed = 0.0;
+    }
 }
 
 /// Turns the index knuckle's position in the camera picture into a screen position.
@@ -90,5 +97,11 @@ impl Steering {
         let y = self.filter_y.filter(knuckle.y / frame_width, dt);
         let (nx, ny) = self.reach.map(x, y);
         (nx * (self.screen.0 - 1.0), ny * (self.screen.1 - 1.0))
+    }
+
+    /// The hand left the picture: forget the smoothing.
+    pub fn lost(&mut self) {
+        self.filter_x.reset();
+        self.filter_y.reset();
     }
 }
