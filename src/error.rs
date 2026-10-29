@@ -22,6 +22,8 @@ pub enum AppError {
     ModelMissing(String),
     ModelProblem(String),
     FileProblem(String),
+    /// A command-line option we do not understand.
+    BadArguments(String),
 }
 
 impl fmt::Display for AppError {
@@ -58,6 +60,7 @@ impl fmt::Display for AppError {
                  If the download was interrupted, run  bash scripts/get-models.sh  again."
             ),
             AppError::FileProblem(detail) => write!(f, "A file problem: {detail}"),
+            AppError::BadArguments(detail) => write!(f, "{detail}\n\n{}", crate::options::USAGE),
         }
     }
 }

@@ -2,6 +2,7 @@
 name = "touchless-mac"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 description = "Control your Mac with your hand, built step by step to learn Rust"
 license = "MIT"
 authors = ["Varun Pratap Bhardwaj"]
@@ -17,3 +18,5 @@ image = "0.25"
 ort = "=2.0.0-rc.15"
 # enigo moves the mouse and presses keys.
 enigo = "0.6"
+# dirs finds the right per-user config folder, so we can remember your calibration.
+dirs = "6"

@@ -1,9 +1,12 @@
-// Chapter 5: Result and `?`. Clear messages instead of crashes.
+// touchless-mac: control your Mac with your hand. Chapter 6 adds start-up calibration.
+mod calibrate;
 mod camera;
 mod error;
 mod gesture;
 mod hand;
 mod mouse;
+mod options;
+mod selftest;
 mod steer;
 
 use camera::Webcam;
@@ -11,6 +14,8 @@ use error::Result;
 use gesture::{GestureDetector, Reading};
 use hand::{Detector, INDEX_KNUCKLE, Tracker};
 use mouse::Mouse;
+use options::{Options, USAGE};
+use std::path::Path;
 use std::time::Instant;
 use steer::{ReachBox, Steering};
 
@@ -24,15 +29,35 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    // Cheap checks first: if the models are missing, say so before asking for any permission.
-    let detector = Detector::new("models/palm.onnx", "models/hand.onnx")?;
-    let mut webcam = Webcam::open()?;
-    let mut tracker = Tracker::new(detector);
-    let mut gestures = GestureDetector::new();
-    let mut mouse = Mouse::new()?;
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let options = Options::parse(&args)?;
+    if options.show_help {
+        println!("{USAGE}");
+        return Ok(());
+    }
 
+    // Cheap checks first: if the models are missing, say so before asking for any permission.
+    let models = Path::new(&options.models_dir);
+    let mut detector = Detector::new(&models.join("palm.onnx"), &models.join("hand.onnx"))?;
+    if !options.selftest_images.is_empty() {
+        for path in &options.selftest_images {
+            selftest::run(&mut detector, path)?;
+        }
+        return Ok(());
+    }
+
+    let mut tracker = Tracker::new(detector);
+    let mut webcam = Webcam::open()?;
+    let mut mouse = Mouse::new()?;
+    let reach = calibrate::choose_reach_box(options.calibration, &mut webcam, &mut tracker)?;
+    follow_hand(&mut webcam, &mut tracker, &mut mouse, reach)
+}
+
+/// The main loop: camera picture in, mouse action out, for ever (Ctrl-C stops it).
+fn follow_hand(webcam: &mut Webcam, tracker: &mut Tracker, mouse: &mut Mouse, reach: ReachBox) -> Result<()> {
     let (screen_width, screen_height) = mouse.screen_size()?;
-    let mut steering = Steering::new(ReachBox::DEFAULT, screen_width, screen_height);
+    let mut steering = Steering::new(reach, screen_width, screen_height);
+    let mut gestures = GestureDetector::new();
     println!("Screen {screen_width} x {screen_height}. Point to move, pinch to click. Ctrl-C stops.");
 
     let mut previous_frame_at = Instant::now();

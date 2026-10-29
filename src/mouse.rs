@@ -55,10 +55,12 @@ impl Mouse {
 
     /// Move the cursor, unless the move is smaller than the dead zone.
     fn point_at(&mut self, x: f32, y: f32) -> Result<()> {
-        if let Some((shown_x, shown_y)) = self.shown {
-            if (x - shown_x).hypot(y - shown_y) < DEAD_ZONE {
-                return Ok(());
-            }
+        let far_enough = match self.shown {
+            Some((shown_x, shown_y)) => (x - shown_x).hypot(y - shown_y) >= DEAD_ZONE,
+            None => true, // the very first move always goes through
+        };
+        if !far_enough {
+            return Ok(());
         }
         self.jump_to(x, y)?;
         self.shown = Some((x, y));

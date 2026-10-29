@@ -128,10 +128,10 @@ pub struct Detector {
 
 impl Detector {
     /// Load both models from disk (see models/README.md for how to download them).
-    pub fn new(palm_path: &str, hand_path: &str) -> Result<Detector> {
+    pub fn new(palm_path: &Path, hand_path: &Path) -> Result<Detector> {
         for path in [palm_path, hand_path] {
-            if !Path::new(path).exists() {
-                return Err(AppError::ModelMissing(path.to_string()));
+            if !path.exists() {
+                return Err(AppError::ModelMissing(path.display().to_string()));
             }
         }
         let environment = ort::init().with_name("touchless-mac").build()?;

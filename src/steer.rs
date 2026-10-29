@@ -29,6 +29,14 @@ impl ReachBox {
     }
 }
 
+/// Where the index knuckle is, in the units the reach box uses. We steer with the knuckle
+/// because it barely moves when you pinch, unlike the fingertip. Both axes are divided by the
+/// frame WIDTH so a move means the same distance either way, and x is mirrored (a mirror
+/// feels natural: move your hand right, the cursor goes right).
+pub fn hand_position(knuckle: Point, frame_width: f32) -> (f32, f32) {
+    (1.0 - knuckle.x / frame_width, knuckle.y / frame_width)
+}
+
 /// One Euro filter (Casiez et al., CHI 2012). It smooths a lot when the hand moves slowly
 /// (so the cursor doesn't shake) and very little when it moves fast (so it doesn't lag).
 pub struct OneEuro {
@@ -91,10 +99,9 @@ impl Steering {
 
     /// The screen position for this knuckle position.
     pub fn aim(&mut self, knuckle: Point, frame_width: f32, dt: f32) -> (f32, f32) {
-        // We steer with the index knuckle: it barely moves when you pinch, unlike the fingertip.
-        // Both axes are divided by the frame WIDTH so a move means the same distance either way.
-        let x = self.filter_x.filter(1.0 - knuckle.x / frame_width, dt); // 1.0 - x mirrors the picture
-        let y = self.filter_y.filter(knuckle.y / frame_width, dt);
+        let (raw_x, raw_y) = hand_position(knuckle, frame_width);
+        let x = self.filter_x.filter(raw_x, dt);
+        let y = self.filter_y.filter(raw_y, dt);
         let (nx, ny) = self.reach.map(x, y);
         (nx * (self.screen.0 - 1.0), ny * (self.screen.1 - 1.0))
     }
