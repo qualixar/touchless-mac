@@ -40,7 +40,12 @@ enum Corner {
 }
 
 /// The order we ask for: clockwise from the top-left.
-const CORNERS: [Corner; 4] = [Corner::TopLeft, Corner::TopRight, Corner::BottomRight, Corner::BottomLeft];
+const CORNERS: [Corner; 4] = [
+    Corner::TopLeft,
+    Corner::TopRight,
+    Corner::BottomRight,
+    Corner::BottomLeft,
+];
 
 impl Corner {
     /// How the corner is said out loud.
@@ -78,9 +83,15 @@ impl fmt::Display for CalibrationProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CalibrationProblem::NotEnoughHand(corner) => {
-                write!(f, "I could not see your hand for the {} corner", corner.name())
+                write!(
+                    f,
+                    "I could not see your hand for the {} corner",
+                    corner.name()
+                )
             }
-            CalibrationProblem::Misordered => write!(f, "the four corners were not in the expected order"),
+            CalibrationProblem::Misordered => {
+                write!(f, "the four corners were not in the expected order")
+            }
             CalibrationProblem::TooSmall => write!(f, "your hand barely moved between corners"),
         }
     }
@@ -107,7 +118,8 @@ fn build_box(samples: &Samples) -> std::result::Result<ReachBox, CalibrationProb
             return Err(CalibrationProblem::NotEnoughHand(*corner));
         }
     }
-    let [top_left, top_right, bottom_right, bottom_left] = [0, 1, 2, 3].map(|i| corner_spot(&samples[i]));
+    let [top_left, top_right, bottom_right, bottom_left] =
+        [0, 1, 2, 3].map(|i| corner_spot(&samples[i]));
 
     // Each edge of the box is the average of the two corners on that side.
     let left = (top_left.0 + bottom_left.0) / 2.0;
@@ -121,8 +133,16 @@ fn build_box(samples: &Samples) -> std::result::Result<ReachBox, CalibrationProb
     if width < MIN_BOX_WIDTH || height < MIN_BOX_HEIGHT {
         return Err(CalibrationProblem::TooSmall);
     }
-    let (x0, x1) = at_least(left + width * INWARD_MARGIN, right - width * INWARD_MARGIN, COMFORT_WIDTH);
-    let (y0, y1) = at_least(top + height * INWARD_MARGIN, bottom - height * INWARD_MARGIN, COMFORT_HEIGHT);
+    let (x0, x1) = at_least(
+        left + width * INWARD_MARGIN,
+        right - width * INWARD_MARGIN,
+        COMFORT_WIDTH,
+    );
+    let (y0, y1) = at_least(
+        top + height * INWARD_MARGIN,
+        bottom - height * INWARD_MARGIN,
+        COMFORT_HEIGHT,
+    );
     Ok(ReachBox { x0, x1, y0, y1 })
 }
 
@@ -139,16 +159,24 @@ fn at_least(low: f32, high: f32, size: f32) -> (f32, f32) {
 
 /// One line of text: "x0 x1 y0 y1".
 fn format_box(reach: &ReachBox) -> String {
-    format!("{:.4} {:.4} {:.4} {:.4}\n", reach.x0, reach.x1, reach.y0, reach.y1)
+    format!(
+        "{:.4} {:.4} {:.4} {:.4}\n",
+        reach.x0, reach.x1, reach.y0, reach.y1
+    )
 }
 
 /// Read the text back. Anything odd gives `None`, and we simply calibrate again.
 fn parse_box(text: &str) -> Option<ReachBox> {
-    let numbers: Vec<f32> = text.split_whitespace().map(|word| word.parse().ok()).collect::<Option<_>>()?;
+    let numbers: Vec<f32> = text
+        .split_whitespace()
+        .map(|word| word.parse().ok())
+        .collect::<Option<_>>()?;
     let [x0, x1, y0, y1] = numbers[..] else {
         return None;
     };
-    let sensible = [x0, x1, y0, y1].iter().all(|v| v.is_finite() && (-1.0..=2.0).contains(v));
+    let sensible = [x0, x1, y0, y1]
+        .iter()
+        .all(|v| v.is_finite() && (-1.0..=2.0).contains(v));
     (sensible && x0 < x1 && y0 < y1).then_some(ReachBox { x0, x1, y0, y1 })
 }
 
@@ -172,7 +200,11 @@ fn load_box(path: &Path) -> Option<ReachBox> {
 // ---- the live part ----
 
 /// Decide which reach box to use for this run, following the command-line choice.
-pub fn choose_reach_box(mode: CalibrationMode, webcam: &mut Webcam, tracker: &mut Tracker) -> Result<ReachBox> {
+pub fn choose_reach_box(
+    mode: CalibrationMode,
+    webcam: &mut Webcam,
+    tracker: &mut Tracker,
+) -> Result<ReachBox> {
     let file = default_box_file();
     match mode {
         CalibrationMode::Skip => {
@@ -206,7 +238,9 @@ pub fn choose_reach_box(mode: CalibrationMode, webcam: &mut Webcam, tracker: &mu
                         println!("{STAR_NOTE}");
                     }
                 }
-                Err(error) => eprintln!("Could not save the calibration ({error}). You will be asked again next time."),
+                Err(error) => eprintln!(
+                    "Could not save the calibration ({error}). You will be asked again next time."
+                ),
             }
         }
         None => eprintln!("No config folder found, so the calibration is not saved."),
@@ -262,7 +296,10 @@ fn watch_for(
     while started.elapsed() < duration {
         let frame = webcam.grab()?;
         if let Some(hand) = tracker.see(&frame)? {
-            on_hand(started.elapsed(), hand_position(hand.points[INDEX_KNUCKLE], frame.width() as f32));
+            on_hand(
+                started.elapsed(),
+                hand_position(hand.points[INDEX_KNUCKLE], frame.width() as f32),
+            );
         }
     }
     Ok(())
@@ -274,20 +311,38 @@ mod tests {
 
     /// Thirty slightly shaky readings around a spot.
     fn around(x: f32, y: f32) -> Vec<(f32, f32)> {
-        (0..30).map(|i| (x + 0.002 * ((i % 3) as f32 - 1.0), y + 0.002 * ((i % 5) as f32 - 2.0))).collect()
+        (0..30)
+            .map(|i| {
+                (
+                    x + 0.002 * ((i % 3) as f32 - 1.0),
+                    y + 0.002 * ((i % 5) as f32 - 2.0),
+                )
+            })
+            .collect()
     }
 
     /// A normal calibration: the hand covers x 0.40 to 0.60 and y 0.20 to 0.40.
     fn good_samples() -> Samples {
-        [around(0.40, 0.20), around(0.60, 0.20), around(0.60, 0.40), around(0.40, 0.40)]
+        [
+            around(0.40, 0.20),
+            around(0.60, 0.20),
+            around(0.60, 0.40),
+            around(0.40, 0.40),
+        ]
     }
 
     #[test]
     fn box_comes_from_the_four_corners_with_a_small_margin() {
         let reach = build_box(&good_samples()).unwrap();
         // Width 0.20 and height 0.20, so the 5% margin is 0.01 on each side.
-        assert!((reach.x0 - 0.41).abs() < 0.003 && (reach.x1 - 0.59).abs() < 0.003, "{reach:?}");
-        assert!((reach.y0 - 0.21).abs() < 0.003 && (reach.y1 - 0.39).abs() < 0.003, "{reach:?}");
+        assert!(
+            (reach.x0 - 0.41).abs() < 0.003 && (reach.x1 - 0.59).abs() < 0.003,
+            "{reach:?}"
+        );
+        assert!(
+            (reach.y0 - 0.21).abs() < 0.003 && (reach.y1 - 0.39).abs() < 0.003,
+            "{reach:?}"
+        );
     }
 
     #[test]
@@ -301,8 +356,16 @@ mod tests {
     #[test]
     fn the_corners_you_pointed_at_reach_the_corners_of_the_screen() {
         let reach = build_box(&good_samples()).unwrap();
-        assert_eq!(reach.map(0.40, 0.20), (0.0, 0.0), "pointing at the top-left corner");
-        assert_eq!(reach.map(0.60, 0.40), (1.0, 1.0), "pointing at the bottom-right corner");
+        assert_eq!(
+            reach.map(0.40, 0.20),
+            (0.0, 0.0),
+            "pointing at the top-left corner"
+        );
+        assert_eq!(
+            reach.map(0.60, 0.40),
+            (1.0, 1.0),
+            "pointing at the bottom-right corner"
+        );
         let (middle_x, middle_y) = reach.map(0.50, 0.30);
         assert!((middle_x - 0.5).abs() < 0.01 && (middle_y - 0.5).abs() < 0.01);
     }
@@ -311,7 +374,10 @@ mod tests {
     fn a_corner_with_too_few_pictures_fails() {
         let mut samples = good_samples();
         samples[2].truncate(7); // under a quarter of a second of hand
-        assert_eq!(build_box(&samples), Err(CalibrationProblem::NotEnoughHand(Corner::BottomRight)));
+        assert_eq!(
+            build_box(&samples),
+            Err(CalibrationProblem::NotEnoughHand(Corner::BottomRight))
+        );
         samples[2] = around(0.60, 0.40);
         samples[2].truncate(8);
         assert!(build_box(&samples).is_ok(), "eight pictures is enough");
@@ -320,31 +386,68 @@ mod tests {
     #[test]
     fn corners_in_the_wrong_places_fail() {
         // Left and right swapped: the "right" edge ends up left of the "left" edge.
-        let swapped = [around(0.60, 0.20), around(0.40, 0.20), around(0.40, 0.40), around(0.60, 0.40)];
+        let swapped = [
+            around(0.60, 0.20),
+            around(0.40, 0.20),
+            around(0.40, 0.40),
+            around(0.60, 0.40),
+        ];
         assert_eq!(build_box(&swapped), Err(CalibrationProblem::Misordered));
     }
 
     #[test]
     fn a_small_box_is_widened_around_its_centre() {
         // Corners only 0.08 apart: the box keeps its centre but grows to the comfortable size.
-        let small: Samples = [around(0.46, 0.17), around(0.54, 0.17), around(0.54, 0.25), around(0.46, 0.25)];
+        let small: Samples = [
+            around(0.46, 0.17),
+            around(0.54, 0.17),
+            around(0.54, 0.25),
+            around(0.46, 0.25),
+        ];
         let reach = build_box(&small).expect("a small but real box is usable");
-        assert!((reach.x1 - reach.x0 - COMFORT_WIDTH).abs() < 1e-4, "{reach:?}");
-        assert!((reach.y1 - reach.y0 - COMFORT_HEIGHT).abs() < 1e-4, "{reach:?}");
-        assert!(((reach.x0 + reach.x1) / 2.0 - 0.50).abs() < 1e-3, "{reach:?}");
+        assert!(
+            (reach.x1 - reach.x0 - COMFORT_WIDTH).abs() < 1e-4,
+            "{reach:?}"
+        );
+        assert!(
+            (reach.y1 - reach.y0 - COMFORT_HEIGHT).abs() < 1e-4,
+            "{reach:?}"
+        );
+        assert!(
+            ((reach.x0 + reach.x1) / 2.0 - 0.50).abs() < 1e-3,
+            "{reach:?}"
+        );
     }
 
     #[test]
     fn a_hand_that_did_not_move_fails() {
-        let still = [around(0.5, 0.3), around(0.5, 0.3), around(0.5, 0.3), around(0.5, 0.3)];
-        assert!(matches!(build_box(&still), Err(CalibrationProblem::Misordered | CalibrationProblem::TooSmall)));
-        let tiny = [around(0.49, 0.29), around(0.51, 0.29), around(0.51, 0.31), around(0.49, 0.31)];
+        let still = [
+            around(0.5, 0.3),
+            around(0.5, 0.3),
+            around(0.5, 0.3),
+            around(0.5, 0.3),
+        ];
+        assert!(matches!(
+            build_box(&still),
+            Err(CalibrationProblem::Misordered | CalibrationProblem::TooSmall)
+        ));
+        let tiny = [
+            around(0.49, 0.29),
+            around(0.51, 0.29),
+            around(0.51, 0.31),
+            around(0.49, 0.31),
+        ];
         assert_eq!(build_box(&tiny), Err(CalibrationProblem::TooSmall));
     }
 
     #[test]
     fn the_box_survives_being_written_and_read_back() {
-        let reach = ReachBox { x0: 0.4123, x1: 0.6, y0: 0.21, y1: 0.39 };
+        let reach = ReachBox {
+            x0: 0.4123,
+            x1: 0.6,
+            y0: 0.21,
+            y1: 0.39,
+        };
         let back = parse_box(&format_box(&reach)).unwrap();
         assert!((back.x0 - reach.x0).abs() < 1e-4 && (back.y1 - reach.y1).abs() < 1e-4);
     }
@@ -361,9 +464,15 @@ mod tests {
 
     #[test]
     fn save_then_load_through_a_real_file() {
-        let folder = std::env::temp_dir().join(format!("touchless-mac-test-{}", std::process::id()));
+        let folder =
+            std::env::temp_dir().join(format!("touchless-mac-test-{}", std::process::id()));
         let path = folder.join("nested").join("reach-box.txt");
-        let reach = ReachBox { x0: 0.41, x1: 0.59, y0: 0.21, y1: 0.39 };
+        let reach = ReachBox {
+            x0: 0.41,
+            x1: 0.59,
+            y0: 0.21,
+            y1: 0.39,
+        };
         save_box(&path, &reach).unwrap();
         assert_eq!(load_box(&path).map(|b| (b.x0, b.y1)), Some((0.41, 0.39)));
         assert_eq!(load_box(&folder.join("missing.txt")), None);

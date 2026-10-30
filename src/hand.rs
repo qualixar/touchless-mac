@@ -16,6 +16,7 @@ pub const THUMB_TIP: usize = 4;
 pub const INDEX_KNUCKLE: usize = 5;
 pub const INDEX_TIP: usize = 8;
 pub const MIDDLE_TIP: usize = 12;
+pub const RING_TIP: usize = 16;
 
 /// The 12 points of the palm itself. We leave out the fingertips on purpose: fingertips
 /// move a lot, and a box drawn around them would swing about and make the cursor shake.
@@ -73,7 +74,12 @@ fn sample(img: &RgbImage, x: f32, y: f32) -> [f32; 3] {
     let (x0, y0) = (x.floor() as u32, y.floor() as u32);
     let (fx, fy) = (x - x0 as f32, y - y0 as f32);
     let pixel = |px, py| img.get_pixel(px, py).0;
-    let (a, b, c, d) = (pixel(x0, y0), pixel(x0 + 1, y0), pixel(x0, y0 + 1), pixel(x0 + 1, y0 + 1));
+    let (a, b, c, d) = (
+        pixel(x0, y0),
+        pixel(x0 + 1, y0),
+        pixel(x0, y0 + 1),
+        pixel(x0 + 1, y0 + 1),
+    );
     std::array::from_fn(|i| {
         let top = a[i] as f32 * (1.0 - fx) + b[i] as f32 * fx;
         let bottom = c[i] as f32 * (1.0 - fx) + d[i] as f32 * fx;
@@ -88,7 +94,10 @@ fn palm_anchors() -> Vec<(f32, f32)> {
         for y in 0..grid {
             for x in 0..grid {
                 for _ in 0..per_cell {
-                    anchors.push(((x as f32 + 0.5) / grid as f32, (y as f32 + 0.5) / grid as f32));
+                    anchors.push((
+                        (x as f32 + 0.5) / grid as f32,
+                        (y as f32 + 0.5) / grid as f32,
+                    ));
                 }
             }
         }
@@ -112,12 +121,19 @@ fn letterbox(img: &RgbImage) -> Letterbox {
     let mut canvas = RgbImage::new(PALM_INPUT, PALM_INPUT);
     let (left, top) = ((PALM_INPUT - small_w) / 2, (PALM_INPUT - small_h) / 2);
     imageops::replace(&mut canvas, &small, left as i64, top as i64);
-    Letterbox { canvas, ratio, left, top }
+    Letterbox {
+        canvas,
+        ratio,
+        left,
+        top,
+    }
 }
 
 /// Turn a picture into the flat list of numbers (0.0 to 1.0) that the models read.
 fn to_model_input(img: &RgbImage) -> Vec<f32> {
-    img.pixels().flat_map(|p| p.0.map(|c| c as f32 / 255.0)).collect()
+    img.pixels()
+        .flat_map(|p| p.0.map(|c| c as f32 / 255.0))
+        .collect()
 }
 
 pub struct Detector {
@@ -137,7 +153,11 @@ impl Detector {
         let environment = ort::init().with_name("touchless-mac").build()?;
         let palm_model = Session::builder(&environment)?.commit_from_file(palm_path)?;
         let hand_model = Session::builder(&environment)?.commit_from_file(hand_path)?;
-        Ok(Detector { palm_model, hand_model, anchors: palm_anchors() })
+        Ok(Detector {
+            palm_model,
+            hand_model,
+            anchors: palm_anchors(),
+        })
     }
 
     /// Look at the whole picture for a palm. Gives back a crop for the hand model, or
@@ -150,10 +170,11 @@ impl Detector {
         let (_, scores) = outputs[1].try_extract_tensor::<f32>()?;
 
         // Each of the 2016 anchors has a score. We take the best one.
-        let (best, raw_score) = scores
-            .iter()
-            .enumerate()
-            .fold((0, f32::MIN), |acc, (i, &s)| if s > acc.1 { (i, s) } else { acc });
+        let (best, raw_score) =
+            scores.iter().enumerate().fold(
+                (0, f32::MIN),
+                |acc, (i, &s)| if s > acc.1 { (i, s) } else { acc },
+            );
         if sigmoid(raw_score) < MIN_CONFIDENCE {
             return Ok(None);
         }
@@ -184,9 +205,17 @@ impl Detector {
             Point { x, y }
         });
         let world = std::array::from_fn(|i| {
-            [world_points[i * 3], world_points[i * 3 + 1], world_points[i * 3 + 2]]
+            [
+                world_points[i * 3],
+                world_points[i * 3 + 1],
+                world_points[i * 3 + 2],
+            ]
         });
-        Ok(Some(Hand { points, world, confidence: confidence[0] }))
+        Ok(Some(Hand {
+            points,
+            world,
+            confidence: confidence[0],
+        }))
     }
 }
 
@@ -196,8 +225,16 @@ fn palm_to_crop(boxes: &[f32], best: usize, anchor: (f32, f32), boxed: &Letterbo
     let (ax, ay) = anchor;
     // Numbers in the model's 0..1 space become picture pixels again.
     let scale = PALM_INPUT as f32 / boxed.ratio;
-    let (pad_x, pad_y) = (boxed.left as f32 / boxed.ratio, boxed.top as f32 / boxed.ratio);
-    let to_pixels = |x: f32, y: f32| ((x / 192.0 + ax) * scale - pad_x, (y / 192.0 + ay) * scale - pad_y);
+    let (pad_x, pad_y) = (
+        boxed.left as f32 / boxed.ratio,
+        boxed.top as f32 / boxed.ratio,
+    );
+    let to_pixels = |x: f32, y: f32| {
+        (
+            (x / 192.0 + ax) * scale - pad_x,
+            (y / 192.0 + ay) * scale - pad_y,
+        )
+    };
 
     // Palm keypoint 0 is the wrist and keypoint 2 the middle finger's base: they give the direction.
     let wrist = to_pixels(row[4], row[5]);
@@ -208,7 +245,12 @@ fn palm_to_crop(boxes: &[f32], best: usize, anchor: (f32, f32), boxed: &Letterbo
     let size = (row[2] / 192.0).max(row[3] / 192.0) * scale;
     // Same numbers as Google's pipeline: move the box half a palm towards the fingers,
     // then make it 2.6 times bigger so the whole hand fits.
-    Crop { cx: cx + up.0 * 0.5 * size, cy: cy + up.1 * 0.5 * size, side: size * 2.6, up }
+    Crop {
+        cx: cx + up.0 * 0.5 * size,
+        cy: cy + up.1 * 0.5 * size,
+        side: size * 2.6,
+        up,
+    }
 }
 
 /// Gives back a function that converts a spot inside the 224 x 224 crop to a spot in the
@@ -221,7 +263,10 @@ fn crop_to_picture(crop: Crop) -> impl Fn(f32, f32) -> (f32, f32) {
     let half = HAND_INPUT as f32 / 2.0;
     move |a, b| {
         let (a, b) = ((a - half) * pixels_per_step, (b - half) * pixels_per_step);
-        (crop.cx + a * right.0 + b * down.0, crop.cy + a * right.1 + b * down.1)
+        (
+            crop.cx + a * right.0 + b * down.0,
+            crop.cy + a * right.1 + b * down.1,
+        )
     }
 }
 
@@ -248,7 +293,12 @@ impl Hand {
         let shift = 0.1 * size; // a little towards the fingers
         let cx = centre_a * right.0 + (centre_b + shift) * up.0;
         let cy = centre_a * right.1 + (centre_b + shift) * up.1;
-        Crop { cx, cy, side: size * 2.0, up }
+        Crop {
+            cx,
+            cy,
+            side: size * 2.0,
+            up,
+        }
     }
 }
 
@@ -266,7 +316,8 @@ impl Hand {
             let (wrist, p) = (self.points[WRIST], self.points[i]);
             (p.x - wrist.x).hypot(p.y - wrist.y)
         };
-        let stretched = |tip: usize, middle_joint: usize| from_wrist(tip) > from_wrist(middle_joint) * 1.1;
+        let stretched =
+            |tip: usize, middle_joint: usize| from_wrist(tip) > from_wrist(middle_joint) * 1.1;
         stretched(8, 6) && stretched(12, 10) && stretched(16, 14) && stretched(20, 18)
     }
 
@@ -275,7 +326,10 @@ impl Hand {
         const PALM_CENTRE_POINTS: [usize; 5] = [0, 5, 9, 13, 17];
         let sum_x: f32 = PALM_CENTRE_POINTS.iter().map(|&i| self.points[i].x).sum();
         let sum_y: f32 = PALM_CENTRE_POINTS.iter().map(|&i| self.points[i].y).sum();
-        Point { x: sum_x / 5.0, y: sum_y / 5.0 }
+        Point {
+            x: sum_x / 5.0,
+            y: sum_y / 5.0,
+        }
     }
 }
 
@@ -287,7 +341,10 @@ pub struct Tracker {
 
 impl Tracker {
     pub fn new(detector: Detector) -> Tracker {
-        Tracker { detector, last: None }
+        Tracker {
+            detector,
+            last: None,
+        }
     }
 
     /// Look for the hand in this picture. First try near where it was last time (fast).

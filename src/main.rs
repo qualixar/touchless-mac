@@ -49,23 +49,37 @@ fn run() -> Result<()> {
     let mut tracker = Tracker::new(detector);
     let mut webcam = Webcam::open()?;
     let mut mouse = Mouse::new()?;
-    let reach = calibrate::choose_reach_box(options.calibration, &mut webcam, &mut tracker)?;
+    if options.invert_scroll {
+        mouse.invert_scroll();
+    }
+    let reach = calibrate::choose_reach_box(options.calibration, &mut webcam, &mut tracker)?
+        .with_speed(options.speed);
     follow_hand(&mut webcam, &mut tracker, &mut mouse, reach)
 }
 
 /// The main loop: camera picture in, mouse action out, for ever (Ctrl-C stops it).
-fn follow_hand(webcam: &mut Webcam, tracker: &mut Tracker, mouse: &mut Mouse, reach: ReachBox) -> Result<()> {
+fn follow_hand(
+    webcam: &mut Webcam,
+    tracker: &mut Tracker,
+    mouse: &mut Mouse,
+    reach: ReachBox,
+) -> Result<()> {
     let (screen_width, screen_height) = mouse.screen_size()?;
     let mut steering = Steering::new(reach, screen_width, screen_height);
     let mut gestures = GestureDetector::new();
-    println!("Screen {screen_width} x {screen_height}. Point to move, pinch to click. Ctrl-C stops.");
+    println!(
+        "Screen {screen_width} x {screen_height}. Point to move, pinch to click. Ctrl-C stops."
+    );
 
     let mut previous_frame_at = Instant::now();
     let mut hand_was_visible = false;
     loop {
         let frame = webcam.grab()?;
         let now = Instant::now();
-        let dt = now.duration_since(previous_frame_at).as_secs_f32().max(1e-3);
+        let dt = now
+            .duration_since(previous_frame_at)
+            .as_secs_f32()
+            .max(1e-3);
         previous_frame_at = now;
 
         // `see` returns an Option<Hand>: either `Some(hand)` or `None`.

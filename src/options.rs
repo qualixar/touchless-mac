@@ -6,6 +6,8 @@ Usage: touchless-mac [options]
 
   --recalibrate        Run the four-corner calibration again and save the result
   --no-calibrate       Skip calibration and use the built-in reach box
+  --speed <0.25-4>     Cursor speed: 1 is normal, 2 twice as fast, 0.5 half (default: 1)
+  --invert-scroll      Scroll the other way
   --models <folder>    Folder with palm.onnx and hand.onnx (default: models)
   --selftest <photo>.. Check the hand finder on photo files; no camera or mouse needed
   -h, --help           Show this text
@@ -27,6 +29,8 @@ pub enum CalibrationMode {
 pub struct Options {
     pub calibration: CalibrationMode,
     pub models_dir: String,
+    pub speed: f32,
+    pub invert_scroll: bool,
     pub selftest_images: Vec<String>,
     pub show_help: bool,
 }
@@ -37,6 +41,8 @@ impl Options {
         let mut options = Options {
             calibration: CalibrationMode::UseSaved,
             models_dir: "models".to_string(),
+            speed: 1.0,
+            invert_scroll: false,
             selftest_images: Vec::new(),
             show_help: false,
         };
@@ -45,8 +51,22 @@ impl Options {
             match arg.as_str() {
                 "--recalibrate" => options.set_calibration(CalibrationMode::Redo)?,
                 "--no-calibrate" => options.set_calibration(CalibrationMode::Skip)?,
+                "--speed" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| bad("--speed needs a number, for example --speed 1.5"))?;
+                    options.speed = value
+                        .parse::<f32>()
+                        .ok()
+                        .filter(|s| (0.25..=4.0).contains(s))
+                        .ok_or_else(|| bad("--speed must be a number from 0.25 to 4"))?;
+                }
+                "--invert-scroll" => options.invert_scroll = true,
                 "--models" => {
-                    options.models_dir = args.next().ok_or_else(|| bad("--models needs a folder name"))?.clone();
+                    options.models_dir = args
+                        .next()
+                        .ok_or_else(|| bad("--models needs a folder name"))?
+                        .clone();
                 }
                 "--selftest" => {
                     options.selftest_images = args.by_ref().cloned().collect();
@@ -63,7 +83,9 @@ impl Options {
 
     fn set_calibration(&mut self, mode: CalibrationMode) -> Result<()> {
         if self.calibration != CalibrationMode::UseSaved && self.calibration != mode {
-            return Err(bad("--recalibrate and --no-calibrate cannot be used together"));
+            return Err(bad(
+                "--recalibrate and --no-calibrate cannot be used together",
+            ));
         }
         self.calibration = mode;
         Ok(())
@@ -92,8 +114,14 @@ mod tests {
 
     #[test]
     fn calibration_flags_are_read() {
-        assert_eq!(parse(&["--recalibrate"]).unwrap().calibration, CalibrationMode::Redo);
-        assert_eq!(parse(&["--no-calibrate"]).unwrap().calibration, CalibrationMode::Skip);
+        assert_eq!(
+            parse(&["--recalibrate"]).unwrap().calibration,
+            CalibrationMode::Redo
+        );
+        assert_eq!(
+            parse(&["--no-calibrate"]).unwrap().calibration,
+            CalibrationMode::Skip
+        );
     }
 
     #[test]
@@ -113,6 +141,9 @@ mod tests {
         assert_eq!(parse(&["--models", "/tmp/m"]).unwrap().models_dir, "/tmp/m");
         assert!(parse(&["--models"]).is_err());
         let message = parse(&["--wobble"]).unwrap_err().to_string();
-        assert!(message.contains("--wobble") && message.contains("Usage"), "{message}");
+        assert!(
+            message.contains("--wobble") && message.contains("Usage"),
+            "{message}"
+        );
     }
 }

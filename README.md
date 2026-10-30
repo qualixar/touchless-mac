@@ -56,6 +56,14 @@ cargo run --release -- --recalibrate    # measure again
 cargo run --release -- --no-calibrate   # skip it and use the built-in box
 ```
 
+## Cursor speed and scrolling
+
+```sh
+cargo run --release -- --speed 0.7       # slower, more precise (0.25 to 4; 1 is normal)
+cargo run --release -- --speed 1.5       # faster, less hand movement
+cargo run --release -- --invert-scroll   # if scrolling feels backwards to you
+```
+
 ## Gestures
 
 | Gesture | What happens | Same as |
@@ -64,9 +72,12 @@ cargo run --release -- --no-calibrate   # skip it and use the built-in box
 | Pinch thumb and index finger | Click, where the cursor was a moment before your fingers closed | left click |
 | Two quick pinches | Double-click: opens a file or an app | double click |
 | Pinch thumb and middle finger | Right-click | right click |
+| Touch thumb to ring finger, then move your hand up or down | Scroll; the page follows your hand | two-finger scroll |
 | Open hand, wave right / left | Next / previous app | Cmd+Tab / Cmd+Shift+Tab |
 | Open hand, wave up | Mission Control | Ctrl+Up |
 | Hand leaves the picture | The cursor stays exactly where it was | letting go of the mouse |
+
+The scroll pose was chosen from real recordings: a thumb-to-ring pinch appeared in under 1% of ordinary pointing frames, while "two fingers out" appeared in up to 82%, so it doesn't scroll by accident.
 
 A pinch counts at under 2.5 cm between the fingertips, measured in 3D from the hand model, so tilting your hand doesn't change it. The cursor holds still while a pinch is down. Stop with Ctrl-C.
 

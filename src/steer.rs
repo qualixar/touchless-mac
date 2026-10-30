@@ -18,10 +18,31 @@ pub struct ReachBox {
 
 impl ReachBox {
     /// The box measured on the author's desk. Calibration (chapter 6) replaces it with yours.
-    pub const DEFAULT: ReachBox = ReachBox { x0: 0.38, x1: 0.64, y0: 0.20, y1: 0.40 };
+    pub const DEFAULT: ReachBox = ReachBox {
+        x0: 0.38,
+        x1: 0.64,
+        y0: 0.20,
+        y1: 0.40,
+    };
 
     /// Where a hand position falls inside the box: (0, 0) is the top-left corner,
     /// (1, 1) the bottom-right. Positions outside the box are held at the edge.
+    /// The same box made faster or slower: speed 2 halves the box around its centre, so
+    /// half the hand movement crosses the whole screen.
+    pub fn with_speed(&self, speed: f32) -> ReachBox {
+        let (cx, cy) = ((self.x0 + self.x1) / 2.0, (self.y0 + self.y1) / 2.0);
+        let (hw, hh) = (
+            (self.x1 - self.x0) / 2.0 / speed,
+            (self.y1 - self.y0) / 2.0 / speed,
+        );
+        ReachBox {
+            x0: cx - hw,
+            x1: cx + hw,
+            y0: cy - hh,
+            y1: cy + hh,
+        }
+    }
+
     pub fn map(&self, x: f32, y: f32) -> (f32, f32) {
         let nx = ((x - self.x0) / (self.x1 - self.x0)).clamp(0.0, 1.0);
         let ny = ((y - self.y0) / (self.y1 - self.y0)).clamp(0.0, 1.0);
@@ -48,7 +69,12 @@ pub struct OneEuro {
 
 impl OneEuro {
     pub fn new(min_cutoff: f32, beta: f32) -> OneEuro {
-        OneEuro { min_cutoff, beta, smoothed: None, speed: 0.0 }
+        OneEuro {
+            min_cutoff,
+            beta,
+            smoothed: None,
+            speed: 0.0,
+        }
     }
 
     /// How much of the new value to let in. 1.0 means "use it as it is".
@@ -142,7 +168,10 @@ mod tests {
             let calm = filter.filter(shaky, DT);
             worst = worst.max((calm - 0.5).abs());
         }
-        assert!(worst < 0.001, "the output should shake less than half as much, got {worst}");
+        assert!(
+            worst < 0.001,
+            "the output should shake less than half as much, got {worst}"
+        );
     }
 
     #[test]
@@ -156,7 +185,10 @@ mod tests {
             }
             out
         };
-        assert!(sweep(10.0) > sweep(0.0) + 0.05, "beta lets fast moves through with less lag");
+        assert!(
+            sweep(10.0) > sweep(0.0) + 0.05,
+            "beta lets fast moves through with less lag"
+        );
     }
 
     #[test]
@@ -170,12 +202,21 @@ mod tests {
 
     #[test]
     fn reach_box_maps_corners_and_clamps_outside() {
-        let b = ReachBox { x0: 0.4, x1: 0.6, y0: 0.2, y1: 0.4 };
+        let b = ReachBox {
+            x0: 0.4,
+            x1: 0.6,
+            y0: 0.2,
+            y1: 0.4,
+        };
         assert_eq!(b.map(0.4, 0.2), (0.0, 0.0));
         assert_eq!(b.map(0.6, 0.4), (1.0, 1.0));
         let (cx, cy) = b.map(0.5, 0.3);
         assert!((cx - 0.5).abs() < 1e-6 && (cy - 0.5).abs() < 1e-6);
-        assert_eq!(b.map(-3.0, 9.0), (0.0, 1.0), "outside the box is held at the edge");
+        assert_eq!(
+            b.map(-3.0, 9.0),
+            (0.0, 1.0),
+            "outside the box is held at the edge"
+        );
     }
 
     #[test]
@@ -183,10 +224,16 @@ mod tests {
         let mut steering = Steering::new(ReachBox::DEFAULT, 1512, 982);
         // Frame is 1000 pixels wide. A knuckle at x=620 is mirrored to 0.38 (the box's left edge).
         let top_left = steering.aim(Point { x: 620.0, y: 200.0 }, 1000.0, DT);
-        assert!(top_left.0.abs() < 1e-3 && top_left.1.abs() < 1e-3, "{top_left:?}");
+        assert!(
+            top_left.0.abs() < 1e-3 && top_left.1.abs() < 1e-3,
+            "{top_left:?}"
+        );
 
         steering.lost();
         let bottom_right = steering.aim(Point { x: 360.0, y: 400.0 }, 1000.0, DT);
-        assert!((bottom_right.0 - 1511.0).abs() < 1e-2 && (bottom_right.1 - 981.0).abs() < 1e-2, "{bottom_right:?}");
+        assert!(
+            (bottom_right.0 - 1511.0).abs() < 1e-2 && (bottom_right.1 - 981.0).abs() < 1e-2,
+            "{bottom_right:?}"
+        );
     }
 }

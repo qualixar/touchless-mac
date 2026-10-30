@@ -5,8 +5,8 @@
 // It prints where the index fingertip is and how far thumb and index are apart. It is the same
 // code path as the live app (palm search, then the hand model, then one tracking step), so it
 // is a quick way to see that your models and ONNX Runtime work, without a camera or permissions.
-use crate::hand::{Detector, INDEX_TIP, Point, THUMB_TIP};
 use crate::error::{AppError, Result};
+use crate::hand::{Detector, INDEX_TIP, Point, THUMB_TIP};
 use image::RgbImage;
 
 pub struct StillReport {
@@ -65,12 +65,23 @@ mod tests {
     ///   TOUCHLESS_PHOTOS=/folder/with/the/photos cargo test --release -- --ignored
     /// The expected numbers are what the first working version of this app measured.
     fn check(name: &str, expected_tip: (f32, f32)) -> StillReport {
-        let folder = std::env::var("TOUCHLESS_PHOTOS").expect("set TOUCHLESS_PHOTOS to the folder with the photos");
-        let picture = image::open(Path::new(&folder).join(name)).expect("photo should open").to_rgb8();
-        let mut detector = Detector::new(Path::new("models/palm.onnx"), Path::new("models/hand.onnx")).expect("models");
-        let report = check_still(&mut detector, &picture).expect("check should run").expect("a hand should be found");
+        let folder = std::env::var("TOUCHLESS_PHOTOS")
+            .expect("set TOUCHLESS_PHOTOS to the folder with the photos");
+        let picture = image::open(Path::new(&folder).join(name))
+            .expect("photo should open")
+            .to_rgb8();
+        let mut detector =
+            Detector::new(Path::new("models/palm.onnx"), Path::new("models/hand.onnx"))
+                .expect("models");
+        let report = check_still(&mut detector, &picture)
+            .expect("check should run")
+            .expect("a hand should be found");
         let miss = (report.index_tip.x - expected_tip.0).hypot(report.index_tip.y - expected_tip.1);
-        assert!(miss <= 3.0, "{name}: index tip at {:?}, expected {expected_tip:?}, off by {miss:.1} px", report.index_tip);
+        assert!(
+            miss <= 3.0,
+            "{name}: index tip at {:?}, expected {expected_tip:?}, off by {miss:.1} px",
+            report.index_tip
+        );
         report
     }
 
@@ -78,14 +89,21 @@ mod tests {
     #[ignore = "needs the models and the sample photos; see the comment above"]
     fn pointing_up_photo() {
         let report = check("pointing_up.jpg", (168.0, 75.0));
-        assert!((report.thumb_to_index_cm - 8.0).abs() < 0.5, "thumb-index {:.1} cm", report.thumb_to_index_cm);
+        assert!(
+            (report.thumb_to_index_cm - 8.0).abs() < 0.5,
+            "thumb-index {:.1} cm",
+            report.thumb_to_index_cm
+        );
     }
 
     #[test]
     #[ignore = "needs the models and the sample photos; see the comment above"]
     fn tilted_photo_keeps_its_finger_and_its_distance() {
         let report = check("rot135.jpg", (343.0, 330.0));
-        assert!((report.thumb_to_index_cm - 8.1).abs() < 0.5, "tilt must not change the distance");
+        assert!(
+            (report.thumb_to_index_cm - 8.1).abs() < 0.5,
+            "tilt must not change the distance"
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //
 // The idea of this chapter is `enum` and `match`. An enum lists every choice there can be.
 // `match` makes the compiler check that we wrote something for EACH choice.
-use crate::hand::{Hand, INDEX_TIP, MIDDLE_TIP, THUMB_TIP};
+use crate::hand::{Hand, INDEX_TIP, MIDDLE_TIP, RING_TIP, THUMB_TIP};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -27,6 +27,12 @@ const WAVE_SPEED: f32 = 0.9;
 const WAVE_COOLDOWN: Duration = Duration::from_millis(800);
 const WAVE_LOOK_BACK: Duration = Duration::from_millis(200);
 const WAVE_MIN_SPAN: f32 = 0.1; // seconds of movement needed before we judge the speed
+/// Scroll: hold thumb and ring finger together for this many pictures, then move the hand.
+/// That pose almost never happens by accident (under 1% of pictures in real recordings,
+/// while a fist showed up in up to 31% and "two fingers out" in up to 82%).
+const SCROLL_PINCH_FRAMES: u32 = 3;
+/// Lines scrolled per frame-width of hand movement (about 8 lines for a 10 cm move).
+const SCROLL_LINES_PER_FRAME_WIDTH: f32 = 80.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction {
@@ -43,6 +49,8 @@ pub enum Gesture {
     DoublePinch,
     RightPinch,
     Wave(Direction),
+    /// Scroll this many lines: positive means the page moves up, as if your hand pushed it.
+    Scroll(i32),
 }
 
 /// A gesture, and the screen spot where it should happen.
@@ -59,6 +67,7 @@ pub struct Reading {
     pub cursor: (f32, f32),
     pub thumb_to_index_m: f32,
     pub thumb_to_middle_m: f32,
+    pub thumb_to_ring_m: f32,
     /// Palm centre in frame widths, with x mirrored (moving your hand right makes x grow).
     pub palm: (f32, f32),
     pub palm_open: bool,
@@ -72,6 +81,7 @@ impl Reading {
             cursor,
             thumb_to_index_m: hand.distance_m(THUMB_TIP, INDEX_TIP),
             thumb_to_middle_m: hand.distance_m(THUMB_TIP, MIDDLE_TIP),
+            thumb_to_ring_m: hand.distance_m(THUMB_TIP, RING_TIP),
             palm: (1.0 - palm.x / frame_width, palm.y / frame_width),
             palm_open: hand.is_open_palm(),
         }
@@ -88,12 +98,20 @@ struct Pinch {
 
 impl Pinch {
     fn new(hold: u32) -> Pinch {
-        Pinch { hold, closed_for: 0, down: false }
+        Pinch {
+            hold,
+            closed_for: 0,
+            down: false,
+        }
     }
 
     /// Feed one distance (metres). Gives back `true` on the picture where the pinch fires.
     fn update(&mut self, distance_m: f32) -> bool {
-        self.closed_for = if distance_m < PINCH_PRESS_M { self.closed_for + 1 } else { 0 };
+        self.closed_for = if distance_m < PINCH_PRESS_M {
+            self.closed_for + 1
+        } else {
+            0
+        };
         if !self.down && self.closed_for >= self.hold {
             self.down = true;
             return true;
@@ -113,7 +131,10 @@ struct SwipeDetector {
 
 impl SwipeDetector {
     fn new() -> SwipeDetector {
-        SwipeDetector { trail: VecDeque::new(), cooldown_until: None }
+        SwipeDetector {
+            trail: VecDeque::new(),
+            cooldown_until: None,
+        }
     }
 
     fn update(&mut self, now: Instant, palm: (f32, f32), open: bool) -> Option<Direction> {
@@ -122,7 +143,11 @@ impl SwipeDetector {
             return None;
         }
         self.trail.push_back((now, palm.0, palm.1));
-        while self.trail.front().is_some_and(|(t, _, _)| now.duration_since(*t) > WAVE_LOOK_BACK) {
+        while self
+            .trail
+            .front()
+            .is_some_and(|(t, _, _)| now.duration_since(*t) > WAVE_LOOK_BACK)
+        {
             self.trail.pop_front();
         }
         let (start, x0, y0) = *self.trail.front()?;
@@ -145,7 +170,11 @@ impl SwipeDetector {
 /// direction as across it. Screen y grows downwards, so "up" is a negative vy.
 fn wave_direction(vx: f32, vy: f32) -> Option<Direction> {
     if vx.abs() > WAVE_SPEED && vx.abs() > 2.0 * vy.abs() {
-        Some(if vx > 0.0 { Direction::Right } else { Direction::Left })
+        Some(if vx > 0.0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        })
     } else if vy < -WAVE_SPEED && vy.abs() > 2.0 * vx.abs() {
         Some(Direction::Up)
     } else {
@@ -161,7 +190,10 @@ struct DoubleClickRule {
 
 impl DoubleClickRule {
     fn new() -> DoubleClickRule {
-        DoubleClickRule { last_click: None, quiet_until: None }
+        DoubleClickRule {
+            last_click: None,
+            quiet_until: None,
+        }
     }
 
     fn is_quiet(&self, now: Instant) -> bool {
@@ -173,17 +205,24 @@ impl DoubleClickRule {
     /// becomes a DoublePinch at the FIRST pinch's spot (the item is already selected).
     fn left_pinch(&mut self, now: Instant, spot: (f32, f32)) -> Event {
         let first = self.last_click.filter(|&(at, first_spot)| {
-            now.duration_since(at) < DOUBLE_PINCH_WINDOW && distance(spot, first_spot) < DOUBLE_PINCH_RADIUS
+            now.duration_since(at) < DOUBLE_PINCH_WINDOW
+                && distance(spot, first_spot) < DOUBLE_PINCH_RADIUS
         });
         match first {
             Some((_, first_spot)) => {
                 self.last_click = None;
                 self.quiet_until = Some(now + QUIET_AFTER_DOUBLE);
-                Event { gesture: Gesture::DoublePinch, at: first_spot }
+                Event {
+                    gesture: Gesture::DoublePinch,
+                    at: first_spot,
+                }
             }
             None => {
                 self.last_click = Some((now, spot));
-                Event { gesture: Gesture::Pinch, at: spot }
+                Event {
+                    gesture: Gesture::Pinch,
+                    at: spot,
+                }
             }
         }
     }
@@ -197,6 +236,10 @@ fn distance(a: (f32, f32), b: (f32, f32)) -> f32 {
 pub struct GestureDetector {
     left: Pinch,
     right: Pinch,
+    scroll: Pinch,
+    /// Palm height when we last scrolled, and the part of a line not sent yet.
+    scroll_from: Option<f32>,
+    scroll_carry: f32,
     swipes: SwipeDetector,
     clicks: DoubleClickRule,
     cursor_history: VecDeque<(f32, f32)>,
@@ -207,6 +250,9 @@ impl GestureDetector {
         GestureDetector {
             left: Pinch::new(LEFT_PINCH_FRAMES),
             right: Pinch::new(RIGHT_PINCH_FRAMES),
+            scroll: Pinch::new(SCROLL_PINCH_FRAMES),
+            scroll_from: None,
+            scroll_carry: 0.0,
             swipes: SwipeDetector::new(),
             clicks: DoubleClickRule::new(),
             cursor_history: VecDeque::with_capacity(CURSOR_HISTORY + 1),
@@ -216,19 +262,34 @@ impl GestureDetector {
     /// The hand left the picture: forget where the cursor has been.
     pub fn lost(&mut self) {
         self.cursor_history.clear();
+        self.scroll_from = None;
+        self.scroll_carry = 0.0;
     }
 
     /// What should the mouse do for this picture? `None` means "leave the cursor alone":
     /// a pinch is being held, or we are in the quiet moment after a double-click.
     pub fn update(&mut self, reading: &Reading) -> Option<Event> {
         self.remember(reading.cursor);
-        let wave = self.swipes.update(reading.now, reading.palm, reading.palm_open);
+        // Scrolling comes first: while thumb and ring finger are held together, the hand's
+        // up and down movement scrolls the page and nothing else happens.
+        let scroll_started = self.scroll.update(reading.thumb_to_ring_m);
+        if scroll_started || self.scroll.down {
+            return self.scroll_by(reading.palm.1);
+        }
+        self.scroll_from = None;
+        self.scroll_carry = 0.0;
+        let wave = self
+            .swipes
+            .update(reading.now, reading.palm, reading.palm_open);
         let left_fired = self.left.update(reading.thumb_to_index_m);
         // A right pinch is ignored while the left one is down, so one pinch can't do both.
         let right_fired = self.right.update(reading.thumb_to_middle_m) && !self.left.down;
 
         if let Some(direction) = wave {
-            return Some(Event { gesture: Gesture::Wave(direction), at: reading.cursor });
+            return Some(Event {
+                gesture: Gesture::Wave(direction),
+                at: reading.cursor,
+            });
         }
         if left_fired || right_fired {
             if self.clicks.is_quiet(reading.now) {
@@ -236,14 +297,38 @@ impl GestureDetector {
             }
             let spot = self.cursor_before_pinch(reading.cursor);
             if right_fired {
-                return Some(Event { gesture: Gesture::RightPinch, at: spot });
+                return Some(Event {
+                    gesture: Gesture::RightPinch,
+                    at: spot,
+                });
             }
             return Some(self.clicks.left_pinch(reading.now, spot));
         }
         if self.left.down || self.right.down {
             return None; // freeze the cursor while a pinch is held
         }
-        Some(Event { gesture: Gesture::Point, at: reading.cursor })
+        Some(Event {
+            gesture: Gesture::Point,
+            at: reading.cursor,
+        })
+    }
+
+    /// Turn the palm's vertical movement into whole lines. The cursor stays where it is.
+    fn scroll_by(&mut self, palm_y: f32) -> Option<Event> {
+        let from = *self.scroll_from.get_or_insert(palm_y);
+        self.scroll_from = Some(palm_y);
+        // Hand up (palm_y falls) gives positive lines: the page follows the hand.
+        self.scroll_carry += (from - palm_y) * SCROLL_LINES_PER_FRAME_WIDTH;
+        let lines = self.scroll_carry.trunc();
+        if lines == 0.0 {
+            return None;
+        }
+        self.scroll_carry -= lines;
+        let at = self.cursor_history.back().copied().unwrap_or((0.0, 0.0));
+        Some(Event {
+            gesture: Gesture::Scroll(lines as i32),
+            at,
+        })
     }
 
     fn remember(&mut self, cursor: (f32, f32)) {
@@ -272,7 +357,56 @@ mod tests {
 
     /// A reading with a resting open hand, which each test then changes.
     fn reading(now: Instant, cursor: (f32, f32), index_m: f32, middle_m: f32) -> Reading {
-        Reading { now, cursor, thumb_to_index_m: index_m, thumb_to_middle_m: middle_m, palm: (0.5, 0.3), palm_open: false }
+        Reading {
+            now,
+            cursor,
+            thumb_to_index_m: index_m,
+            thumb_to_middle_m: middle_m,
+            thumb_to_ring_m: OPEN,
+            palm: (0.5, 0.3),
+            palm_open: false,
+        }
+    }
+
+    /// Hold thumb and ring together and move the palm from y 0.40 to 0.30 over ten pictures.
+    fn scroll_events(det: &mut GestureDetector, base: Instant) -> Vec<Option<Event>> {
+        (0..13)
+            .map(|i| {
+                let mut r = reading(at(base, i * FRAME), (100.0, 100.0), OPEN, OPEN);
+                r.thumb_to_ring_m = CLOSE;
+                r.palm = (0.5, 0.40 - 0.01 * i.saturating_sub(3) as f32);
+                det.update(&r)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn ring_pinch_and_hand_up_scrolls_about_eight_lines_and_never_clicks() {
+        let mut det = GestureDetector::new();
+        let events = scroll_events(&mut det, Instant::now());
+        let lines: i32 = events
+            .iter()
+            .flatten()
+            .map(|e| match e.gesture {
+                Gesture::Scroll(n) => n,
+                Gesture::Point => 0, // pointing until the pinch has been held for three pictures
+                other => panic!("a ring pinch must never click or switch apps, got {other:?}"),
+            })
+            .sum();
+        assert!(
+            (7..=8).contains(&lines),
+            "a 0.10 move should scroll about 8 lines, got {lines}"
+        );
+    }
+
+    #[test]
+    fn scrolling_stops_when_the_fingers_open() {
+        let mut det = GestureDetector::new();
+        let base = Instant::now();
+        scroll_events(&mut det, base);
+        let mut open = reading(at(base, 20 * FRAME), (100.0, 100.0), OPEN, OPEN);
+        open.palm = (0.5, 0.10);
+        assert_eq!(det.update(&open).map(|e| e.gesture), Some(Gesture::Point));
     }
 
     #[test]
@@ -280,7 +414,10 @@ mod tests {
         let mut pinch = Pinch::new(2);
         assert!(!pinch.update(CLOSE));
         assert!(pinch.update(CLOSE));
-        assert!(!pinch.update(CLOSE), "holding the pinch must not fire again");
+        assert!(
+            !pinch.update(CLOSE),
+            "holding the pinch must not fire again"
+        );
     }
 
     #[test]
@@ -288,7 +425,10 @@ mod tests {
         let mut pinch = Pinch::new(2);
         assert!(!pinch.update(CLOSE));
         assert!(!pinch.update(OPEN));
-        assert!(!pinch.update(CLOSE), "the count starts again after an open picture");
+        assert!(
+            !pinch.update(CLOSE),
+            "the count starts again after an open picture"
+        );
     }
 
     #[test]
@@ -313,7 +453,13 @@ mod tests {
 
         // 0.5 s later, 10 points away: a double-click, at the FIRST spot.
         let second = rule.left_pinch(at(base, 500), (108.0, 106.0));
-        assert_eq!(second, Event { gesture: Gesture::DoublePinch, at: (100.0, 100.0) });
+        assert_eq!(
+            second,
+            Event {
+                gesture: Gesture::DoublePinch,
+                at: (100.0, 100.0)
+            }
+        );
     }
 
     #[test]
@@ -341,7 +487,12 @@ mod tests {
     }
 
     /// Feed a closed-then-open pinch through the detector. Returns what the closing frames produced.
-    fn pinch_once(det: &mut GestureDetector, base: Instant, start_ms: u64, cursor: (f32, f32)) -> Vec<Option<Event>> {
+    fn pinch_once(
+        det: &mut GestureDetector,
+        base: Instant,
+        start_ms: u64,
+        cursor: (f32, f32),
+    ) -> Vec<Option<Event>> {
         let mut out = Vec::new();
         for (i, distance) in [CLOSE, CLOSE, OPEN, OPEN].into_iter().enumerate() {
             let now = at(base, start_ms + i as u64 * FRAME);
@@ -354,7 +505,13 @@ mod tests {
     fn detector_points_when_nothing_is_happening() {
         let mut det = GestureDetector::new();
         let event = det.update(&reading(Instant::now(), (10.0, 20.0), OPEN, OPEN));
-        assert_eq!(event, Some(Event { gesture: Gesture::Point, at: (10.0, 20.0) }));
+        assert_eq!(
+            event,
+            Some(Event {
+                gesture: Gesture::Point,
+                at: (10.0, 20.0)
+            })
+        );
     }
 
     #[test]
@@ -374,7 +531,10 @@ mod tests {
         pinch_once(&mut det, base, 0, (300.0, 300.0));
         pinch_once(&mut det, base, 400, (300.0, 300.0)); // the double-click
         let third = pinch_once(&mut det, base, 560, (300.0, 300.0));
-        assert_eq!(third[1], None, "a third pinch right after a double must not click");
+        assert_eq!(
+            third[1], None,
+            "a third pinch right after a double must not click"
+        );
     }
 
     #[test]
@@ -386,7 +546,9 @@ mod tests {
         for i in 0..8u64 {
             let distance = if i >= 6 { CLOSE } else { OPEN };
             let cursor = (100.0 + i as f32 * 10.0, 50.0);
-            fired = det.update(&reading(at(base, i * FRAME), cursor, distance, OPEN)).filter(|e| e.gesture == Gesture::Pinch);
+            fired = det
+                .update(&reading(at(base, i * FRAME), cursor, distance, OPEN))
+                .filter(|e| e.gesture == Gesture::Pinch);
             if fired.is_some() {
                 break;
             }
@@ -415,7 +577,10 @@ mod tests {
         det.update(&reading(at(base, FRAME), (5.0, 5.0), CLOSE, OPEN)); // left pinch fires
         for i in 2..8u64 {
             let event = det.update(&reading(at(base, i * FRAME), (5.0, 5.0), CLOSE, CLOSE));
-            assert_eq!(event, None, "the cursor stays frozen and no right click happens");
+            assert_eq!(
+                event, None,
+                "the cursor stays frozen and no right click happens"
+            );
         }
     }
 
@@ -426,18 +591,32 @@ mod tests {
         pinch_once(&mut det, base, 0, (1.0, 1.0));
         det.update(&reading(at(base, 500), (1.0, 1.0), CLOSE, OPEN));
         det.update(&reading(at(base, 533), (1.0, 1.0), CLOSE, OPEN));
-        assert_eq!(det.update(&reading(at(base, 566), (9.0, 9.0), 0.04, OPEN)), None);
+        assert_eq!(
+            det.update(&reading(at(base, 566), (9.0, 9.0), 0.04, OPEN)),
+            None
+        );
     }
 
     /// Slide an open palm along a line and report the first wave, if any.
-    fn wave_test(det: &mut GestureDetector, base: Instant, start_ms: u64, from: (f32, f32), speed: (f32, f32), open: bool) -> Option<Direction> {
+    fn wave_test(
+        det: &mut GestureDetector,
+        base: Instant,
+        start_ms: u64,
+        from: (f32, f32),
+        speed: (f32, f32),
+        open: bool,
+    ) -> Option<Direction> {
         for i in 0..8u64 {
             let seconds = (i * FRAME) as f32 / 1000.0;
             let palm = (from.0 + speed.0 * seconds, from.1 + speed.1 * seconds);
             let mut r = reading(at(base, start_ms + i * FRAME), (0.0, 0.0), OPEN, OPEN);
             r.palm = palm;
             r.palm_open = open;
-            if let Some(Event { gesture: Gesture::Wave(direction), .. }) = det.update(&r) {
+            if let Some(Event {
+                gesture: Gesture::Wave(direction),
+                ..
+            }) = det.update(&r)
+            {
                 return Some(direction);
             }
         }
@@ -447,18 +626,67 @@ mod tests {
     #[test]
     fn open_hand_waves_in_three_directions() {
         let base = Instant::now();
-        let right = wave_test(&mut GestureDetector::new(), base, 0, (0.3, 0.4), (1.5, 0.0), true);
-        let left = wave_test(&mut GestureDetector::new(), base, 0, (0.7, 0.4), (-1.5, 0.0), true);
-        let up = wave_test(&mut GestureDetector::new(), base, 0, (0.5, 0.6), (0.0, -1.5), true);
-        assert_eq!((right, left, up), (Some(Direction::Right), Some(Direction::Left), Some(Direction::Up)));
+        let right = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.3, 0.4),
+            (1.5, 0.0),
+            true,
+        );
+        let left = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.7, 0.4),
+            (-1.5, 0.0),
+            true,
+        );
+        let up = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.5, 0.6),
+            (0.0, -1.5),
+            true,
+        );
+        assert_eq!(
+            (right, left, up),
+            (
+                Some(Direction::Right),
+                Some(Direction::Left),
+                Some(Direction::Up)
+            )
+        );
     }
 
     #[test]
     fn slow_movement_closed_hands_and_downward_moves_are_not_waves() {
         let base = Instant::now();
-        let slow = wave_test(&mut GestureDetector::new(), base, 0, (0.3, 0.4), (0.5, 0.0), true);
-        let closed = wave_test(&mut GestureDetector::new(), base, 0, (0.3, 0.4), (1.5, 0.0), false);
-        let down = wave_test(&mut GestureDetector::new(), base, 0, (0.5, 0.3), (0.0, 1.5), true);
+        let slow = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.3, 0.4),
+            (0.5, 0.0),
+            true,
+        );
+        let closed = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.3, 0.4),
+            (1.5, 0.0),
+            false,
+        );
+        let down = wave_test(
+            &mut GestureDetector::new(),
+            base,
+            0,
+            (0.5, 0.3),
+            (0.0, 1.5),
+            true,
+        );
         assert_eq!((slow, closed, down), (None, None, None));
     }
 
@@ -466,11 +694,20 @@ mod tests {
     fn a_second_wave_must_wait_for_the_cooldown() {
         let base = Instant::now();
         let mut det = GestureDetector::new();
-        assert_eq!(wave_test(&mut det, base, 0, (0.3, 0.4), (1.5, 0.0), true), Some(Direction::Right));
+        assert_eq!(
+            wave_test(&mut det, base, 0, (0.3, 0.4), (1.5, 0.0), true),
+            Some(Direction::Right)
+        );
         // Straight away: still cooling down (the first wave used up to 8 pictures = 264 ms).
-        assert_eq!(wave_test(&mut det, base, 300, (0.3, 0.4), (1.5, 0.0), true), None);
+        assert_eq!(
+            wave_test(&mut det, base, 300, (0.3, 0.4), (1.5, 0.0), true),
+            None
+        );
         // Well after the 800 ms cooldown.
-        assert_eq!(wave_test(&mut det, base, 2000, (0.3, 0.4), (1.5, 0.0), true), Some(Direction::Right));
+        assert_eq!(
+            wave_test(&mut det, base, 2000, (0.3, 0.4), (1.5, 0.0), true),
+            Some(Direction::Right)
+        );
     }
 
     #[test]
@@ -478,7 +715,15 @@ mod tests {
         assert_eq!(wave_direction(1.0, 0.0), Some(Direction::Right));
         assert_eq!(wave_direction(-1.0, 0.2), Some(Direction::Left));
         assert_eq!(wave_direction(0.0, -1.0), Some(Direction::Up));
-        assert_eq!(wave_direction(1.0, 0.7), None, "diagonal moves are not waves");
-        assert_eq!(wave_direction(0.8, 0.0), None, "below 0.9 frame widths per second");
+        assert_eq!(
+            wave_direction(1.0, 0.7),
+            None,
+            "diagonal moves are not waves"
+        );
+        assert_eq!(
+            wave_direction(0.8, 0.0),
+            None,
+            "below 0.9 frame widths per second"
+        );
     }
 }

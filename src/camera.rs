@@ -24,7 +24,8 @@ impl Webcam {
         if !ask_for_permission()? {
             return Err(AppError::CameraDenied);
         }
-        let wanted = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
+        let wanted =
+            RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
         let mut camera = Camera::new(CameraIndex::Index(0), wanted)?;
         camera.open_stream()?;
         println!("camera: {}", camera.camera_format());
@@ -45,7 +46,7 @@ fn ask_for_permission() -> Result<bool> {
     nokhwa::nokhwa_initialize(move |granted| {
         let _ = answer_tx.send(granted);
     });
-    answer_rx
-        .recv_timeout(PERMISSION_WAIT)
-        .map_err(|_| AppError::CameraProblem("macOS never answered the camera permission question".to_string()))
+    answer_rx.recv_timeout(PERMISSION_WAIT).map_err(|_| {
+        AppError::CameraProblem("macOS never answered the camera permission question".to_string())
+    })
 }

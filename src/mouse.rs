@@ -4,7 +4,9 @@
 // on "Accessibility" for the app that started us (usually Terminal). See the README.
 use crate::error::Result;
 use crate::gesture::{Direction, Event, Gesture};
-use enigo::{Button, Coordinate, Direction as Press, Enigo, Key, Keyboard, Mouse as _, Settings};
+use enigo::{
+    Axis, Button, Coordinate, Direction as Press, Enigo, Key, Keyboard, Mouse as _, Settings,
+};
 
 /// The cursor moves only when it would travel at least this many points. It lets the
 /// cursor rest on a small target while your hand wobbles a little.
@@ -13,6 +15,7 @@ const DEAD_ZONE: f32 = 3.0;
 pub struct Mouse {
     enigo: Enigo,
     shown: Option<(f32, f32)>, // where we last put the cursor when pointing
+    scroll_sign: i32,          // -1 after --invert-scroll
 }
 
 impl Mouse {
@@ -20,7 +23,16 @@ impl Mouse {
     /// (see error.rs), which explains where to switch it on.
     pub fn new() -> Result<Mouse> {
         let enigo = Enigo::new(&Settings::default())?;
-        Ok(Mouse { enigo, shown: None })
+        Ok(Mouse {
+            enigo,
+            shown: None,
+            scroll_sign: 1,
+        })
+    }
+
+    /// Flip the scroll direction (for `--invert-scroll`).
+    pub fn invert_scroll(&mut self) {
+        self.scroll_sign = -self.scroll_sign;
     }
 
     pub fn screen_size(&self) -> Result<(i32, i32)> {
@@ -50,6 +62,10 @@ impl Mouse {
             Gesture::Wave(Direction::Right) => self.shortcut(&[Key::Meta], Key::Tab), // next app
             Gesture::Wave(Direction::Left) => self.shortcut(&[Key::Meta, Key::Shift], Key::Tab), // previous app
             Gesture::Wave(Direction::Up) => self.shortcut(&[Key::Control], Key::UpArrow), // Mission Control
+            // enigo counts positive lines as "scroll down", which moves the page up.
+            Gesture::Scroll(lines) => Ok(self
+                .enigo
+                .scroll(lines * self.scroll_sign, Axis::Vertical)?),
         }
     }
 

@@ -111,13 +111,19 @@ mod tests {
         let error: AppError = enigo::NewConError::NoPermission.into();
         assert!(matches!(error, AppError::AccessibilityDenied));
         let message = error.to_string();
-        assert!(message.contains("Accessibility") && message.contains("System Settings"), "{message}");
+        assert!(
+            message.contains("Accessibility") && message.contains("System Settings"),
+            "{message}"
+        );
     }
 
     #[test]
     fn other_mouse_setup_errors_keep_their_detail() {
         let error: AppError = enigo::NewConError::Reply.into();
-        assert!(matches!(&error, AppError::MouseProblem(d) if d.contains("reply")), "{error}");
+        assert!(
+            matches!(&error, AppError::MouseProblem(d) if d.contains("reply")),
+            "{error}"
+        );
     }
 
     #[test]
@@ -129,7 +135,10 @@ mod tests {
     #[test]
     fn missing_model_names_the_file_and_the_download_script() {
         let message = AppError::ModelMissing("models/palm.onnx".into()).to_string();
-        assert!(message.contains("models/palm.onnx") && message.contains("scripts/get-models.sh"), "{message}");
+        assert!(
+            message.contains("models/palm.onnx") && message.contains("scripts/get-models.sh"),
+            "{message}"
+        );
     }
 
     #[test]
