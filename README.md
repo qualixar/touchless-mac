@@ -49,7 +49,7 @@ You should see a line like `hand 1.00, index tip at (298, 29)`. Run the tests wi
 
 ## Calibration
 
-On the first run the app asks you to point at the four corners of the screen, one after another (about six seconds). It records where your index knuckle is for each corner and builds your personal reach box, so you can reach the whole screen, Dock included, without stretching your arm. The box is saved in `~/Library/Application Support/touchless-mac/` and reused next time.
+On the first run the app asks you, out loud, to point at the four corners of the screen, one after another (about 13 seconds), so you can keep your eyes on the corners. It records where your index knuckle is for each corner and builds your personal reach box, so you can reach the whole screen, Dock included, without stretching your arm. The box is saved in `~/Library/Application Support/touchless-mac/` and reused next time.
 
 ```sh
 cargo run --release -- --recalibrate    # measure again

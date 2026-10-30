@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// Time given to each corner. The first part is for moving your hand there; only the rest is recorded.
-const CORNER_TIME: Duration = Duration::from_millis(1500);
-const SETTLE_TIME: Duration = Duration::from_millis(500);
+const CORNER_TIME: Duration = Duration::from_millis(2500);
+const SETTLE_TIME: Duration = Duration::from_millis(1000);
 /// A moment at the start to raise your hand into view.
-const GET_READY_TIME: Duration = Duration::from_secs(2);
+const GET_READY_TIME: Duration = Duration::from_secs(3);
 /// A corner needs at least this many pictures with a hand in them (one second is about 30).
 const MIN_SAMPLES_PER_CORNER: usize = 8;
 /// The box is shrunk by this share of its size on every side, so the screen edges are
@@ -38,6 +38,16 @@ enum Corner {
 const CORNERS: [Corner; 4] = [Corner::TopLeft, Corner::TopRight, Corner::BottomRight, Corner::BottomLeft];
 
 impl Corner {
+    /// How the corner is said out loud.
+    fn spoken(self) -> &'static str {
+        match self {
+            Corner::TopLeft => "Top left",
+            Corner::TopRight => "Top right",
+            Corner::BottomRight => "Bottom right",
+            Corner::BottomLeft => "Bottom left",
+        }
+    }
+
     fn name(self) -> &'static str {
         match self {
             Corner::TopLeft => "TOP-LEFT",
@@ -173,6 +183,7 @@ pub fn choose_reach_box(mode: CalibrationMode, webcam: &mut Webcam, tracker: &mu
         Err(problem) => return Ok(fall_back(&problem.to_string())),
     };
     println!("Calibration done.");
+    speak("Done.");
     match file {
         Some(path) => {
             // The very first calibration on this Mac: say thank you once, never again.
@@ -202,14 +213,22 @@ fn fall_back(reason: &str) -> ReachBox {
 }
 
 /// Ask for each corner in turn and record the knuckle.
+/// Say a prompt out loud with macOS's `say`, without waiting, so you can keep your eyes on the
+/// screen corners instead of the terminal. If `say` is missing, the printed prompt still works.
+fn speak(text: &str) {
+    let _ = std::process::Command::new("say").arg(text).spawn();
+}
+
 fn record_corners(webcam: &mut Webcam, tracker: &mut Tracker) -> Result<Samples> {
-    println!("\nCalibration (about 6 seconds). Raise your hand so the camera can see it.");
+    println!("\nCalibration (about 13 seconds). Raise your hand so the camera can see it.");
+    speak("Calibration. Raise your hand, then point at each corner I name, and hold.");
     println!("You will point your index finger at the four corners of the SCREEN, one by one.");
     watch_for(GET_READY_TIME, webcam, tracker, |_, _| {})?;
 
     let mut samples: Samples = Default::default();
     for (slot, corner) in samples.iter_mut().zip(CORNERS) {
         println!("Point at the {} corner and hold", corner.name());
+        speak(&format!("{}.", corner.spoken()));
         watch_for(CORNER_TIME, webcam, tracker, |elapsed, position| {
             if elapsed >= SETTLE_TIME {
                 slot.push(position);
