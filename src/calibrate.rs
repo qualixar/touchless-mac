@@ -25,6 +25,11 @@ const INWARD_MARGIN: f32 = 0.05;
 /// A box smaller than this (in frame widths) means you did not really move your hand.
 const MIN_BOX_WIDTH: f32 = 0.05;
 const MIN_BOX_HEIGHT: f32 = 0.03;
+/// A comfortable box is at least this big. A smaller one (pointing by turning the finger
+/// instead of moving the hand) makes the cursor jump at the slightest move, so it is widened
+/// around the same centre, just below a normal calibration (about 0.18 x 0.18).
+const COMFORT_WIDTH: f32 = 0.16;
+const COMFORT_HEIGHT: f32 = 0.12;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Corner {
@@ -41,7 +46,7 @@ impl Corner {
     /// How the corner is said out loud.
     fn spoken(self) -> &'static str {
         match self {
-            Corner::TopLeft => "Top left",
+            Corner::TopLeft => "Move your hand to the top left",
             Corner::TopRight => "Top right",
             Corner::BottomRight => "Bottom right",
             Corner::BottomLeft => "Bottom left",
@@ -116,12 +121,18 @@ fn build_box(samples: &Samples) -> std::result::Result<ReachBox, CalibrationProb
     if width < MIN_BOX_WIDTH || height < MIN_BOX_HEIGHT {
         return Err(CalibrationProblem::TooSmall);
     }
-    Ok(ReachBox {
-        x0: left + width * INWARD_MARGIN,
-        x1: right - width * INWARD_MARGIN,
-        y0: top + height * INWARD_MARGIN,
-        y1: bottom - height * INWARD_MARGIN,
-    })
+    let (x0, x1) = at_least(left + width * INWARD_MARGIN, right - width * INWARD_MARGIN, COMFORT_WIDTH);
+    let (y0, y1) = at_least(top + height * INWARD_MARGIN, bottom - height * INWARD_MARGIN, COMFORT_HEIGHT);
+    Ok(ReachBox { x0, x1, y0, y1 })
+}
+
+/// Widen the span [low, high] to at least `size`, keeping its centre.
+fn at_least(low: f32, high: f32, size: f32) -> (f32, f32) {
+    if high - low >= size {
+        return (low, high);
+    }
+    let centre = (low + high) / 2.0;
+    (centre - size / 2.0, centre + size / 2.0)
 }
 
 // ---- remembering the box between runs ----
@@ -311,6 +322,16 @@ mod tests {
         // Left and right swapped: the "right" edge ends up left of the "left" edge.
         let swapped = [around(0.60, 0.20), around(0.40, 0.20), around(0.40, 0.40), around(0.60, 0.40)];
         assert_eq!(build_box(&swapped), Err(CalibrationProblem::Misordered));
+    }
+
+    #[test]
+    fn a_small_box_is_widened_around_its_centre() {
+        // Corners only 0.08 apart: the box keeps its centre but grows to the comfortable size.
+        let small: Samples = [around(0.46, 0.17), around(0.54, 0.17), around(0.54, 0.25), around(0.46, 0.25)];
+        let reach = build_box(&small).expect("a small but real box is usable");
+        assert!((reach.x1 - reach.x0 - COMFORT_WIDTH).abs() < 1e-4, "{reach:?}");
+        assert!((reach.y1 - reach.y0 - COMFORT_HEIGHT).abs() < 1e-4, "{reach:?}");
+        assert!(((reach.x0 + reach.x1) / 2.0 - 0.50).abs() < 1e-3, "{reach:?}");
     }
 
     #[test]
