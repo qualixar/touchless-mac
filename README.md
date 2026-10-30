@@ -14,7 +14,7 @@ It runs on the camera already in your Mac: no extra hardware, no cloud, nothing 
 <a href="https://github.com/qualixar/touchless-mac/stargazers"><img src="https://img.shields.io/github/stars/qualixar/touchless-mac?style=flat-square&color=FF8A3D" alt="GitHub stars"></a>
 </p>
 
-<p align="center"><img src="docs/assets/install.gif" alt="Terminal recording: git clone, download the two hand models, then a camera-free self-test that finds the index fingertip in a photo" width="860"></p>
+<p align="center"><img src="docs/assets/demo.gif" alt="Filmed on a phone: a hand in the air moves the Mac's cursor across the Mission Control windows, then touches thumb to ring finger and scrolls a Finder list" width="320"><br><sub>Real: filmed on a phone while the app ran. Two moments from one take: pointing across Mission Control, then a thumb-to-ring scroll.</sub></p>
 
 > **If this project is useful to you, please star it.** Stars are how other people find it.
 
@@ -29,12 +29,18 @@ bash scripts/get-models.sh      # downloads the two hand models (about 8 MB) and
 cargo run --release
 ```
 
+<p align="center"><img src="docs/assets/install.gif" alt="Terminal recording: git clone, download the two hand models, then a camera-free self-test that finds the index fingertip in a photo" width="860"></p>
+
 The first build takes a few minutes while Cargo downloads and compiles the crates. Then macOS asks for two permissions, both for the app you started it from (usually Terminal):
 
 1. **Camera.** Allow it. If you said no by mistake: System Settings → Privacy & Security → Camera.
 2. **Accessibility**, which lets the app move the mouse and press keys: System Settings → Privacy & Security → Accessibility.
 
 If a permission is missing, the app tells you which one and where to switch it on. It never crashes on it.
+
+### Or download the ready-made build
+
+Each [release](https://github.com/qualixar/touchless-mac/releases) has an Apple Silicon build. It isn't signed by an Apple developer account yet, so after unpacking run `xattr -dr com.apple.quarantine <folder>`, then `bash scripts/get-models.sh` and `./touchless-mac` inside it.
 
 ### Check your install without a camera
 

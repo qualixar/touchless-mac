@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos-arm64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --release
+      - name: Build
+        run: cargo build --release
+      - name: Package
+        run: |
+          name="touchless-mac-${GITHUB_REF_NAME}-macos-arm64"
+          mkdir -p "$name/scripts" "$name/models"
+          cp target/release/touchless-mac "$name/"
+          cp scripts/get-models.sh "$name/scripts/"
+          cp models/README.md "$name/models/"
+          cp README.md LICENSE CHANGELOG.md "$name/"
+          tar -czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: docs/release-notes/${{ github.ref_name }}.md
+          files: |
+            touchless-mac-*.tar.gz
+            touchless-mac-*.tar.gz.sha256
