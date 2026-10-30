@@ -14,7 +14,15 @@ It runs on the camera already in your Mac: no extra hardware, no cloud, nothing 
 <a href="https://github.com/qualixar/touchless-mac/stargazers"><img src="https://img.shields.io/github/stars/qualixar/touchless-mac?style=flat-square&color=FF8A3D" alt="GitHub stars"></a>
 </p>
 
-<p align="center"><img src="docs/assets/demo.gif" alt="Filmed on a phone: a hand in the air moves the Mac's cursor across the Mission Control windows, then touches thumb to ring finger and scrolls a Finder list" width="320"><br><sub>Real: filmed on a phone while the app ran. Two moments from one take: pointing across Mission Control, then a thumb-to-ring scroll.</sub></p>
+<p align="center"><img src="docs/assets/demo.gif" alt="Filmed on a phone: a hand in the air double-pinches and a Finder folder opens, then thumb touches ring finger and the Finder list scrolls" width="340"><br><sub>Real: filmed on a phone while the app ran. A double pinch in the air opens a folder, then a thumb-to-ring pinch scrolls it.</sub></p>
+
+## See it work
+
+| Double pinch opens a photo | Pinch the red button: the window closes | Thumb + ring finger scrolls |
+|:---:|:---:|:---:|
+| <img src="docs/assets/open-photo.gif" alt="Screen recording: the cursor rests on sunrise.jpg in Finder, a double pinch, and the photo opens in Preview" width="260"> | <img src="docs/assets/close-window.gif" alt="Screen recording: the cursor moves to the photo window's red close button, a pinch, and the window closes" width="260"> | <img src="docs/assets/scroll.gif" alt="Filmed on a phone: thumb touches ring finger and the hand moves; the Finder list scrolls" width="190"> |
+| screen recording of a real run | screen recording of a real run | filmed on a phone |
+
 
 > **If this project is useful to you, please star it.** Stars are how other people find it.
 
