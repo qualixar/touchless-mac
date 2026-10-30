@@ -174,14 +174,26 @@ pub fn choose_reach_box(mode: CalibrationMode, webcam: &mut Webcam, tracker: &mu
     };
     println!("Calibration done.");
     match file {
-        Some(path) => match save_box(&path, &reach) {
-            Ok(()) => println!("Saved to {}", path.display()),
-            Err(error) => eprintln!("Could not save the calibration ({error}). You will be asked again next time."),
-        },
+        Some(path) => {
+            // The very first calibration on this Mac: say thank you once, never again.
+            let first_time = !path.exists();
+            match save_box(&path, &reach) {
+                Ok(()) => {
+                    println!("Saved to {}", path.display());
+                    if first_time {
+                        println!("{STAR_NOTE}");
+                    }
+                }
+                Err(error) => eprintln!("Could not save the calibration ({error}). You will be asked again next time."),
+            }
+        }
         None => eprintln!("No config folder found, so the calibration is not saved."),
     }
     Ok(reach)
 }
+
+/// Printed once, after the first calibration that worked.
+const STAR_NOTE: &str = "\nIt works. If touchless-mac is useful to you, a star on GitHub helps other people find it:\n  https://github.com/qualixar/touchless-mac\n";
 
 fn fall_back(reason: &str) -> ReachBox {
     eprintln!("Calibration did not work: {reason}.");

@@ -3,9 +3,14 @@ name = "touchless-mac"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "Control your Mac with your hand, built step by step to learn Rust"
+description = "Control your Mac with your hand through the built-in camera: point to move the cursor, pinch to click, wave to switch apps. A Rust tutorial project."
 license = "MIT"
 authors = ["Varun Pratap Bhardwaj"]
+repository = "https://github.com/qualixar/touchless-mac"
+homepage = "https://github.com/qualixar/touchless-mac"
+readme = "README.md"
+keywords = ["hand-tracking", "gesture", "macos", "mouse", "mediapipe"]
+categories = ["computer-vision", "accessibility", "command-line-utilities"]
 
 # Cargo reads this list and fetches every crate (Rust package) the program uses.
 [dependencies]

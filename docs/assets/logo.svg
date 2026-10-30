@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="touchless-mac logo: a finger made of hand-tracking points steering a mouse cursor without touching it">
+  <title>touchless-mac</title>
+  <rect width="256" height="256" rx="56" fill="#231e5c"/>
+  <polyline points="42,222 62,188 82,160 102,134" fill="none" stroke="#8f88ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="114" y1="119" x2="130" y2="98" stroke="#ff8a3d" stroke-width="6" stroke-linecap="round" stroke-dasharray="1 11"/>
+  <circle cx="42" cy="222" r="10" fill="#c9c5ff"/>
+  <circle cx="62" cy="188" r="10" fill="#c9c5ff"/>
+  <circle cx="82" cy="160" r="10" fill="#c9c5ff"/>
+  <circle cx="102" cy="134" r="13" fill="#ff8a3d"/>
+  <path d="M138 80 L138 190 L163 167 L180 206 L199 198 L182 160 L216 158 Z" fill="#ffffff" stroke="#231e5c" stroke-width="7" stroke-linejoin="round"/>
+</svg>
