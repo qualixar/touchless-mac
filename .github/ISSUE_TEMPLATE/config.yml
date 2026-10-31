@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Learn Rust with this project (full video tutorial)
+    url: https://youtu.be/ml6cmS3Jgkc
+    about: The 19-minute build, chapter by chapter.
+  - name: Report a security problem privately
+    url: https://github.com/qualixar/touchless-mac/security/advisories/new
+    about: Please don't file security issues in public.

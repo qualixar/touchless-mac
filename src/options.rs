@@ -3,13 +3,15 @@ use crate::error::{AppError, Result};
 
 pub const USAGE: &str = "\
 Usage: touchless-mac [options]
+       touchless-mac doctor      Check models, camera and permissions, and say what to fix
 
   --recalibrate        Run the four-corner calibration again and save the result
   --no-calibrate       Skip calibration and use the built-in reach box
   --speed <0.25-4>     Cursor speed: 1 is normal, 2 twice as fast, 0.5 half (default: 1)
   --invert-scroll      Scroll the other way
-  --models <folder>    Folder with palm.onnx and hand.onnx (default: models)
+  --models <folder>    Folder with palm.onnx and hand.onnx (default: found automatically)
   --selftest <photo>.. Check the hand finder on photo files; no camera or mouse needed
+  -V, --version        Show the version
   -h, --help           Show this text
 
 Without options, the app uses your saved calibration, or calibrates the first time.";
@@ -28,11 +30,15 @@ pub enum CalibrationMode {
 #[derive(Debug, PartialEq)]
 pub struct Options {
     pub calibration: CalibrationMode,
-    pub models_dir: String,
+    /// `--models`: a folder to use instead of searching the usual places.
+    pub models_dir: Option<String>,
     pub speed: f32,
     pub invert_scroll: bool,
     pub selftest_images: Vec<String>,
     pub show_help: bool,
+    pub show_version: bool,
+    /// `touchless-mac doctor`
+    pub doctor: bool,
 }
 
 impl Options {
@@ -40,11 +46,13 @@ impl Options {
     pub fn parse(args: &[String]) -> Result<Options> {
         let mut options = Options {
             calibration: CalibrationMode::UseSaved,
-            models_dir: "models".to_string(),
+            models_dir: None,
             speed: 1.0,
             invert_scroll: false,
             selftest_images: Vec::new(),
             show_help: false,
+            show_version: false,
+            doctor: false,
         };
         let mut args = args.iter();
         while let Some(arg) = args.next() {
@@ -63,10 +71,11 @@ impl Options {
                 }
                 "--invert-scroll" => options.invert_scroll = true,
                 "--models" => {
-                    options.models_dir = args
-                        .next()
-                        .ok_or_else(|| bad("--models needs a folder name"))?
-                        .clone();
+                    options.models_dir = Some(
+                        args.next()
+                            .ok_or_else(|| bad("--models needs a folder name"))?
+                            .clone(),
+                    );
                 }
                 "--selftest" => {
                     options.selftest_images = args.by_ref().cloned().collect();
@@ -75,6 +84,8 @@ impl Options {
                     }
                 }
                 "-h" | "--help" => options.show_help = true,
+                "-V" | "--version" => options.show_version = true,
+                "doctor" => options.doctor = true,
                 other => return Err(bad(&format!("unknown option '{other}'"))),
             }
         }
@@ -108,7 +119,8 @@ mod tests {
     fn no_arguments_means_saved_calibration_and_default_models() {
         let options = parse(&[]).unwrap();
         assert_eq!(options.calibration, CalibrationMode::UseSaved);
-        assert_eq!(options.models_dir, "models");
+        assert_eq!(options.models_dir, None);
+        assert!(!options.doctor && !options.show_version);
         assert!(options.selftest_images.is_empty() && !options.show_help);
     }
 
@@ -138,12 +150,25 @@ mod tests {
 
     #[test]
     fn models_flag_needs_a_folder_and_unknown_flags_are_refused() {
-        assert_eq!(parse(&["--models", "/tmp/m"]).unwrap().models_dir, "/tmp/m");
+        assert_eq!(
+            parse(&["--models", "/tmp/m"])
+                .unwrap()
+                .models_dir
+                .as_deref(),
+            Some("/tmp/m")
+        );
         assert!(parse(&["--models"]).is_err());
         let message = parse(&["--wobble"]).unwrap_err().to_string();
         assert!(
             message.contains("--wobble") && message.contains("Usage"),
             "{message}"
         );
+    }
+
+    #[test]
+    fn doctor_and_version_are_read() {
+        assert!(parse(&["doctor"]).unwrap().doctor);
+        assert!(parse(&["--version"]).unwrap().show_version);
+        assert!(parse(&["-V"]).unwrap().show_version);
     }
 }

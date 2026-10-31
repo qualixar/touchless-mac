@@ -36,4 +36,8 @@ fetch() {
 
 fetch "$PALM_URL" palm.onnx "$PALM_SHA256"
 fetch "$HAND_URL" hand.onnx "$HAND_SHA256"
-echo "Done. Next: cargo run --release"
+if [ -f "$here/Cargo.toml" ]; then
+    echo "Done. Next: cargo run --release"
+else
+    echo "Done. Next: ./touchless-mac   (or  ./touchless-mac doctor  to check your setup)"
+fi

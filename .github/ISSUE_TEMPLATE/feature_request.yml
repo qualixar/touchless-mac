@@ -1,0 +1,14 @@
+name: Idea or gesture request
+description: A gesture, a setting, or something you'd control with your hand
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to do with your hand?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it matter to you?

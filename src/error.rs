@@ -18,7 +18,7 @@ pub enum AppError {
     /// macOS Accessibility permission (needed to move the mouse) was refused.
     AccessibilityDenied,
     MouseProblem(String),
-    /// A model file is not where we looked. Holds the path.
+    /// The model files were not in any of the places we looked. Holds that list.
     ModelMissing(String),
     ModelProblem(String),
     FileProblem(String),
@@ -48,11 +48,12 @@ impl fmt::Display for AppError {
                  If it is already on, switch it off and on again."
             ),
             AppError::MouseProblem(detail) => write!(f, "Could not control the mouse: {detail}"),
-            AppError::ModelMissing(path) => write!(
+            AppError::ModelMissing(searched) => write!(
                 f,
-                "Cannot find the hand model file: {path}\n\
-                 Download the models with:  bash scripts/get-models.sh\n\
-                 and run the program from the folder that contains the models/ folder."
+                "Cannot find the hand models (palm.onnx and hand.onnx). Looked in:\n{searched}\n\
+                 From a source checkout, download them with:  bash scripts/get-models.sh\n\
+                 Or install the ready-made app, models included:\n  \
+                 curl -fsSL https://raw.githubusercontent.com/qualixar/touchless-mac/main/install.sh | bash"
             ),
             AppError::ModelProblem(detail) => write!(
                 f,
@@ -134,7 +135,7 @@ mod tests {
 
     #[test]
     fn missing_model_names_the_file_and_the_download_script() {
-        let message = AppError::ModelMissing("models/palm.onnx".into()).to_string();
+        let message = AppError::ModelMissing("  models/palm.onnx".into()).to_string();
         assert!(
             message.contains("models/palm.onnx") && message.contains("scripts/get-models.sh"),
             "{message}"

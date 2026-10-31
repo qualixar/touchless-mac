@@ -28,7 +28,32 @@ It runs on the camera already in your Mac: no extra hardware, no cloud, nothing 
 
 ## Quick start
 
-You need a Mac with a camera and Rust 1.85 or newer ([rustup.rs](https://rustup.rs); `rustup update` if unsure).
+**Install in one line** (Apple Silicon Mac; the ready-made build with the hand models included):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/qualixar/touchless-mac/main/install.sh | bash
+touchless-mac doctor     # checks the models, camera and permissions, and opens the right Settings page if one is off
+touchless-mac            # starts it; the first run asks you to point at four corners
+```
+
+Or with Homebrew:
+
+```sh
+brew install qualixar/tap/touchless-mac
+```
+
+The installer downloads the latest release, checks it against its SHA-256 fingerprint and puts `touchless-mac` in `~/.local/bin`; nothing needs `sudo`. Read [install.sh](install.sh) before you run it if you like; it's short. To remove it: `rm -rf ~/.local/share/touchless-mac ~/.local/bin/touchless-mac`.
+
+macOS asks for two permissions for the app you start it from (usually Terminal):
+
+1. **Camera.** Allow it.
+2. **Accessibility**, which lets the app move the mouse and press keys.
+
+If one is missing, the app says which one and opens that page of System Settings for you. It never crashes on it. `touchless-mac doctor` checks both at any time.
+
+### Build it from source (the way the tutorial does)
+
+You need Rust 1.85 or newer ([rustup.rs](https://rustup.rs); `rustup update` if unsure).
 
 ```sh
 git clone https://github.com/qualixar/touchless-mac.git
@@ -39,16 +64,9 @@ cargo run --release
 
 <p align="center"><img src="docs/assets/install.gif" alt="Terminal recording: git clone, download the two hand models, then a camera-free self-test that finds the index fingertip in a photo" width="860"></p>
 
-The first build takes a few minutes while Cargo downloads and compiles the crates. Then macOS asks for two permissions, both for the app you started it from (usually Terminal):
+The first build takes a few minutes while Cargo downloads and compiles the crates. On an Intel Mac this is the way to run it (the ready-made build is Apple Silicon only, and Intel is untested).
 
-1. **Camera.** Allow it. If you said no by mistake: System Settings → Privacy & Security → Camera.
-2. **Accessibility**, which lets the app move the mouse and press keys: System Settings → Privacy & Security → Accessibility.
-
-If a permission is missing, the app tells you which one and where to switch it on. It never crashes on it.
-
-### Or download the ready-made build
-
-Each [release](https://github.com/qualixar/touchless-mac/releases) has an Apple Silicon build. It isn't signed by an Apple developer account yet, so after unpacking run `xattr -dr com.apple.quarantine <folder>`, then `bash scripts/get-models.sh` and `./touchless-mac` inside it.
+The ready-made build isn't signed by an Apple developer account yet. The installer and Homebrew handle that for you; if you download a release by hand in a browser, run `xattr -dr com.apple.quarantine <folder>` after unpacking.
 
 ### Check your install without a camera
 
@@ -56,12 +74,15 @@ This runs the same hand finder on Google's public MediaPipe sample photo and nee
 
 ```sh
 curl -sfLO https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/pointing_up.jpg
-cargo run --release -- --selftest pointing_up.jpg
+touchless-mac --selftest pointing_up.jpg          # installed app
+cargo run --release -- --selftest pointing_up.jpg  # from source
 ```
 
 You should see a line like `hand 1.00, index tip at (298, 29)`. Run the tests with `cargo test`.
 
 ## Calibration
+
+*Commands below use `cargo run --release --` from a source checkout; with the installed app, type `touchless-mac` instead.*
 
 On the first run the app asks you, out loud, to point at the four corners of the screen, one after another (about 13 seconds), so you can keep your eyes on the corners. It records where your index knuckle is for each corner and builds your personal reach box, so you can reach the whole screen, Dock included, without stretching your arm. The box is saved in `~/Library/Application Support/touchless-mac/` and reused next time.
 
@@ -140,11 +161,13 @@ Measured on an Apple M5 Pro: the palm search takes about 9 ms and tracking a han
 
 ## FAQ
 
-**Does it send my camera to the internet?** No. Both models run on your Mac through ONNX Runtime. The only downloads are the two model files, once, from Hugging Face, checked against fixed SHA-256 fingerprints.
+**Does it send my camera to the internet?** No. Both models run on your Mac through ONNX Runtime, and the app makes no network requests while it runs. The models come inside the release download (or, from source, are fetched once from Hugging Face), checked against fixed SHA-256 fingerprints.
+
+**Something isn't working?** Run `touchless-mac doctor`; it checks the models, the camera and both permissions and tells you what to fix. Still stuck? Open an issue and paste its output.
 
 **Which Macs does it work on?** It's developed and tested on Apple Silicon with the built-in camera. Any camera macOS can see should work. Intel Macs are untested.
 
-**Do I need to know Rust?** Not to use it: the four commands in Quick start are all you need. To learn Rust, follow the chapter tags with the video.
+**Do I need to know Rust?** Not to use it: the one-line install is all you need. To learn Rust, follow the chapter tags with the video.
 
 **Can it replace my mouse or trackpad?** For pointing, clicking, opening things and switching apps, yes. For pixel-precise work, a trackpad is still better.
 
@@ -155,7 +178,7 @@ Measured on an Apple M5 Pro: the palm search takes about 9 ms and tracking a han
 ## Credits
 
 - Google MediaPipe hand models: the palm detector and the 21-point hand landmark model ([MediaPipe Hand Landmarker](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)).
-- OpenCV's ONNX conversions of those models ([`opencv/palm_detection_mediapipe`](https://huggingface.co/opencv/palm_detection_mediapipe), [`opencv/handpose_estimation_mediapipe`](https://huggingface.co/opencv/handpose_estimation_mediapipe)), Apache License 2.0 per both model cards. The models are not stored here; `scripts/get-models.sh` downloads them.
+- OpenCV's ONNX conversions of those models ([`opencv/palm_detection_mediapipe`](https://huggingface.co/opencv/palm_detection_mediapipe), [`opencv/handpose_estimation_mediapipe`](https://huggingface.co/opencv/handpose_estimation_mediapipe)), Apache License 2.0 per both model cards. The models are not stored in git; the release download includes them unchanged, with their licence ([models/NOTICE.md](models/NOTICE.md)), and `scripts/get-models.sh` downloads them for a source checkout.
 - The One Euro filter: Casiez, Roussel and Vogel, CHI 2012.
 - Crates: [`nokhwa`](https://crates.io/crates/nokhwa), [`ort`](https://crates.io/crates/ort), [`image`](https://crates.io/crates/image), [`enigo`](https://crates.io/crates/enigo), [`dirs`](https://crates.io/crates/dirs).
 

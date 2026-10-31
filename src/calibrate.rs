@@ -181,6 +181,10 @@ fn parse_box(text: &str) -> Option<ReachBox> {
 }
 
 /// Where the box is saved: the user's config folder (on a Mac, ~/Library/Application Support).
+pub fn saved_box_exists() -> bool {
+    default_box_file().is_some_and(|path| path.is_file())
+}
+
 fn default_box_file() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join("touchless-mac").join("reach-box.txt"))
 }

@@ -24,8 +24,14 @@ jobs:
           mkdir -p "$name/scripts" "$name/models"
           cp target/release/touchless-mac "$name/"
           cp scripts/get-models.sh "$name/scripts/"
-          cp models/README.md "$name/models/"
+          # Bundle the two hand models (checked against their SHA-256 fingerprints) with their licence.
+          bash scripts/get-models.sh "$name/models"
+          cp models/README.md models/NOTICE.md models/LICENSE-Apache-2.0.txt "$name/models/"
           cp README.md LICENSE CHANGELOG.md "$name/"
+          # Smoke test the packaged program from outside its folder: it must find its own models.
+          (cd /tmp && "$GITHUB_WORKSPACE/$name/touchless-mac" --version)
+          curl -fsSL -o /tmp/pointing_up.jpg https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/pointing_up.jpg
+          (cd /tmp && "$GITHUB_WORKSPACE/$name/touchless-mac" --selftest /tmp/pointing_up.jpg)
           tar -czf "$name.tar.gz" "$name"
           shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
       - name: Publish release

@@ -7,6 +7,7 @@ mod hand;
 mod mouse;
 mod options;
 mod selftest;
+mod setup;
 mod steer;
 
 use camera::Webcam;
@@ -15,7 +16,6 @@ use gesture::{GestureDetector, Reading};
 use hand::{Detector, INDEX_KNUCKLE, Tracker};
 use mouse::Mouse;
 use options::{Options, USAGE};
-use std::path::Path;
 use std::time::Instant;
 use steer::{ReachBox, Steering};
 
@@ -24,6 +24,11 @@ fn main() {
     // no panic, no stack trace, just what went wrong and what to do about it.
     if let Err(error) = run() {
         eprintln!("\n{error}\n");
+        // A missing permission is fixed in System Settings, so open the right page for the user.
+        if let Some(pane) = setup::pane_for(&error) {
+            eprintln!("Opening that page in System Settings for you...\n");
+            setup::open_settings(pane);
+        }
         std::process::exit(1);
     }
 }
@@ -35,10 +40,17 @@ fn run() -> Result<()> {
         println!("{USAGE}");
         return Ok(());
     }
+    if options.show_version {
+        println!("touchless-mac {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    if options.doctor {
+        return doctor(options.models_dir.as_deref());
+    }
 
     // Cheap checks first: if the models are missing, say so before asking for any permission.
-    let models = Path::new(&options.models_dir);
-    let mut detector = Detector::new(&models.join("palm.onnx"), &models.join("hand.onnx"))?;
+    let models = setup::find_models(options.models_dir.as_deref())?;
+    let mut detector = Detector::new(&models.join(setup::PALM), &models.join(setup::HAND))?;
     if !options.selftest_images.is_empty() {
         for path in &options.selftest_images {
             selftest::run(&mut detector, path)?;
@@ -55,6 +67,69 @@ fn run() -> Result<()> {
     let reach = calibrate::choose_reach_box(options.calibration, &mut webcam, &mut tracker)?
         .with_speed(options.speed);
     follow_hand(&mut webcam, &mut tracker, &mut mouse, reach)
+}
+
+/// `touchless-mac doctor`: check everything a first run needs and say how to fix what is missing.
+fn doctor(models_dir: Option<&str>) -> Result<()> {
+    let mut checks = Vec::new();
+    match setup::find_models(models_dir)
+        .and_then(|dir| Detector::new(&dir.join(setup::PALM), &dir.join(setup::HAND)).map(|_| dir))
+    {
+        Ok(dir) => checks.push(setup::Check {
+            ok: true,
+            what: format!(
+                "Hand models load from {}",
+                dir.canonicalize().unwrap_or(dir).display()
+            ),
+            fix: None,
+        }),
+        Err(error) => checks.push(setup::Check {
+            ok: false,
+            what: "Hand models".into(),
+            fix: Some(error.to_string().replace('\n', "\n       ")),
+        }),
+    }
+    let trusted = setup::accessibility_allowed();
+    checks.push(setup::Check {
+        ok: trusted,
+        what: "Accessibility (lets the app move the mouse)".into(),
+        fix: (!trusted).then(|| {
+            setup::open_settings(setup::Pane::Accessibility);
+            "Opened System Settings > Privacy & Security > Accessibility: switch on the app \
+             you run this from (usually Terminal)."
+                .into()
+        }),
+    });
+    match Webcam::open().and_then(|mut cam| cam.grab()) {
+        Ok(frame) => checks.push(setup::Check {
+            ok: true,
+            what: format!("Camera works ({} x {})", frame.width(), frame.height()),
+            fix: None,
+        }),
+        Err(error) => {
+            if let Some(pane) = setup::pane_for(&error) {
+                setup::open_settings(pane);
+            }
+            checks.push(setup::Check {
+                ok: false,
+                what: "Camera".into(),
+                fix: Some(error.to_string().replace('\n', "\n       ")),
+            })
+        }
+    }
+    let saved = calibrate::saved_box_exists();
+    checks.push(setup::Check {
+        ok: true,
+        what: if saved {
+            "Calibration saved (run with --recalibrate to redo it)".into()
+        } else {
+            "No calibration yet: the first run asks you to point at four corners (about 13 s)"
+                .into()
+        },
+        fix: None,
+    });
+    setup::print_report(&checks);
+    Ok(())
 }
 
 /// The main loop: camera picture in, mouse action out, for ever (Ctrl-C stops it).
