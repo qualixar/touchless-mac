@@ -14,7 +14,9 @@ It runs on the camera already in your Mac: no extra hardware, no cloud, nothing 
 <a href="https://github.com/qualixar/touchless-mac/stargazers"><img src="https://img.shields.io/github/stars/qualixar/touchless-mac?style=flat-square&color=FF8A3D" alt="GitHub stars"></a>
 </p>
 
-<p align="center"><img src="docs/assets/demo.gif" alt="Filmed on a phone: a hand in the air double-pinches and a Finder folder opens, then thumb touches ring finger and the Finder list scrolls" width="340"><br><sub>Real: filmed on a phone while the app ran. A double pinch in the air opens a folder, then a thumb-to-ring pinch scrolls it.</sub></p>
+<p align="center"><img src="docs/assets/demo-all-gestures.webp" alt="Filmed on a phone while the app ran, 30 seconds, nine labelled moments: a wave switches apps, a wave up spreads every window out, pointing moves the highlight, a pinch opens a window, a double pinch opens a folder and then a photo, another wave switches apps, a pinch opens Finder, and thumb to ring finger scrolls the list" width="420"><br>
+<sub><b>Every gesture, real footage:</b> wave, wave up, point, pinch, double pinch, thumb + ring scroll. Filmed on a phone while the app ran; the screen is blurred for privacy.</sub><br>
+<sub>🎬 <a href="https://youtu.be/ml6cmS3Jgkc">Watch the full tutorial: learn Rust by building this, from an empty folder</a></sub></p>
 
 ## See it work
 
