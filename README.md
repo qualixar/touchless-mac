@@ -16,7 +16,7 @@ It runs on the camera already in your Mac: no extra hardware, no cloud, nothing 
 
 <p align="center"><img src="docs/assets/demo-all-gestures.webp" alt="Filmed on a phone while the app ran, 30 seconds, nine labelled moments: a wave switches apps, a wave up spreads every window out, pointing moves the highlight, a pinch opens a window, a double pinch opens a folder and then a photo, another wave switches apps, a pinch opens Finder, and thumb to ring finger scrolls the list" width="420"><br>
 <sub><b>Every gesture, real footage:</b> wave, wave up, point, pinch, double pinch, thumb + ring scroll. Filmed on a phone while the app ran; the screen is blurred for privacy.</sub><br>
-<sub>🎬 <a href="https://youtu.be/ml6cmS3Jgkc">Watch the full tutorial: learn Rust by building this, from an empty folder</a></sub></p>
+<sub>🎬 <a href="https://youtu.be/ml6cmS3Jgkc">Watch the full tutorial: learn Rust by building this, from an empty folder</a> · <a href="https://qualixar.com/products/touchless-mac">Product page</a> · <a href="https://qualixar.com/research/blog/no-touchscreen-needed-control-your-mac-with-your-hand">Written lesson</a></sub></p>
 
 ## See it work
 
